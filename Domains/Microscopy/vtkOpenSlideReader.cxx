@@ -19,6 +19,7 @@
 #include "vtkObjectFactory.h"
 #include "vtkPointData.h"
 #include "vtkToolkits.h"
+#include "vtkStreamingDemandDrivenPipeline.h"
 
 vtkStandardNewMacro(vtkOpenSlideReader);
 
@@ -60,6 +61,15 @@ void vtkOpenSlideReader::ExecuteInformation()
 void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
                                                vtkInformation *outInfo)
 {
+  int inExtent[6];
+
+  vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
+      outInfo,
+      inExtent);
+
+  cout << inExtent[0] << ", " << inExtent[1] << endl;
+  cout << inExtent[2] << ", " << inExtent[3] << endl;
+
   vtkImageData *data = this->AllocateOutputData(output, outInfo);
   //data->GetExtent(this->OutputExtent);
   //data->GetIncrements(this->OutputIncrements);
@@ -76,10 +86,10 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
   data->GetPointData()->GetScalars()->SetName("OpenSlideImage");
   // No updating anything right now
   //// Leverage openslide to read the region
-  int inExtent[6];
-  data->GetExtent(inExtent);
-  //cout << inExtent[0] << ", " << inExtent[1] << endl;
-  //cout << inExtent[2] << ", " << inExtent[3] << endl;
+  //int inExtent[6];
+  //data->GetExtent(inExtent);
+  cout << inExtent[0] << ", " << inExtent[1] << endl;
+  cout << inExtent[2] << ", " << inExtent[3] << endl;
 
   int w = inExtent[1] - inExtent[0];
   int h = inExtent[3]- inExtent[2];
