@@ -55,6 +55,11 @@ int vtkPTIFWriter::RequestInformation (
   return 1;
 }
 
+//----------------------------------------------------------------------------
+// Write out
+void vtkPTIFWriter::Write()
+{
+}
 
 //----------------------------------------------------------------------------
 // This templated function executes the filter for any type of data.

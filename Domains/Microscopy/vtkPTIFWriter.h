@@ -37,9 +37,16 @@ public:
   vtkTypeMacro(vtkPTIFWriter,vtkThreadedImageAlgorithm);
   virtual void PrintSelf(ostream& os, vtkIndent indent);
 
+  vtkSetStringMacro(FileName);
+  vtkGetStringMacro(FileName);
+  void Write();
+
 protected:
   vtkPTIFWriter();
   ~vtkPTIFWriter() {}
+
+  char *FileName;
+
   virtual void  ThreadedExecute (vtkImageData *inData, vtkImageData *outData, int extent[6], int threadId);
   virtual void  ThreadedRequestData (vtkInformation *request, vtkInformationVector **inputVector,
      vtkInformationVector *outputVector, vtkImageData ***inData,
