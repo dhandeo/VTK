@@ -21,9 +21,6 @@
 #include "vtkPointData.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 
-extern "C" {
-  #include "vtk_tiff.h"
-}
 
 #if _MSC_VER
 #define snprintf _snprintf
@@ -68,24 +65,24 @@ void vtkPTIFWriter::Write()
   int bytesPrinted = 0;
   // determine the name
 
-  // // Fill in image information.
-  // this->GetInputExecutive(0, 0)->UpdateInformation();
-  // int *wExtent;
-  // wExtent = vtkStreamingDemandDrivenPipeline::GetWholeExtent(
-  //   this->GetInputInformation(0, 0));
-  // this->FilesDeleted = 0;
-  // this->UpdateProgress(0.0);
+  // Fill in image information.
+  this->GetInputExecutive(0, 0)->UpdateInformation();
+  int *wExtent;
+  wExtent = vtkStreamingDemandDrivenPipeline::GetWholeExtent(
+    this->GetInputInformation(0, 0));
+
+  this->UpdateProgress(0.0);
   //
-  // this->WriteFileHeader(0, this->GetInput(), wExtent);
-  // this->WriteFile(0, this->GetInput(), wExtent, 0);
-  // if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
-  //   {
-  //   this->DeleteFiles();
-  //   }
-  // else
-  //   {
-  //   this->WriteFileTrailer(0, 0);
-  //   }
+  this->WriteFileHeader(0, this->GetInput(), wExtent);
+  this->WriteFile(0, this->GetInput(), wExtent, 0);
+  if (this->ErrorCode == vtkErrorCode::OutOfDiskSpaceError)
+    {
+    this->DeleteFiles();
+    }
+  else
+    {
+    this->WriteFileTrailer(0, 0);
+    }
 
   delete [] this->InternalFileName;
   this->InternalFileName = NULL;
@@ -138,14 +135,15 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   // this->XResolution = 10.0 / data->GetSpacing()[0];
   // this->YResolution = 10.0 / data->GetSpacing()[1];
   //
-  TIFF* tif = TIFFOpen(this->InternalFileName, "w");
+  std::cout << this->FileName << endl;
+  this->TIFFPtr = TIFFOpen(this->FileName, "w");
   //
-  // if (!tif)
-  //   {
-  //   this->TIFFPtr = 0;
-  //   return;
-  //   }
-  // this->TIFFPtr = tif;
+  if (this->TIFFPtr == NULL)
+    {
+    this->TIFFPtr = 0;
+    return;
+    }
+  cout << "Done opening .." << endl;
   //
   // // Let the volume do its metadata, keep existing for 2D images.
   // if (this->Pages > 1)
@@ -182,14 +180,15 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   //   TIFFSetField(tif,TIFFTAG_EXTRASAMPLES,extra_samples,
   //     sample_info);
   //   delete [] sample_info;
+  //     vtkTemplateMacro(this->WriteVolume((VTK_TT *)(inPtr)));
+  //     default:
   //   }
   //
   // int compression;
   // switch ( this->Compression )
   //   {
-  //   case vtkPTIFWriter::PackBits: compression = COMPRESSION_PACKBITS; break;
-  //   case vtkPTIFWriter::JPEG:     compression = COMPRESSION_JPEG; break;
-  //   case vtkPTIFWriter::Deflate:  compression = COMPRESSION_DEFLATE; break;
+  //   case vtkPTI269: TIFFOpen: : Cannot open.
+  // FWriter::Deflate:  compression = COMPRESSION_DEFLATE; break;
   //   case vtkPTIFWriter::LZW:      compression = COMPRESSION_LZW; break;
   //   default: compression = COMPRESSION_NONE;
   //   }
@@ -211,9 +210,15 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   //     default:
   //       vtkErrorMacro("UpdateFromFile: Unknown data type");
   //     }
-  //   vtkErrorMacro("LZW compression is patented outside US so it is disabled");
-  //   }
-  // else if ( compression == COMPRESSION_DEFLATE )
+  //   vtkErrorMacro("LZW com == NULL TIFF* tif = reinterpret_cast<TIFF*>(this->TIFFPtr);
+  // std::cout << tif << endl;
+  if (this->TIFFPtr == NULL)
+    {
+    vtkErrorMacro("Problem writing header.");
+    this->SetErrorCode(vtkErrorCode::FileFormatError);
+    return;
+    }
+  // = COMPRESSION_DEFLATE )
   //   {
   //   predictor = 2;
   //   TIFFSetField(tif, TIFFTAG_PREDICTOR, predictor);
@@ -234,29 +239,28 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
 void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
                               int extent[6], int*)
 {
-  // Make sure we actually have data.
-  if (!data->GetPointData()->GetScalars())
-    {
-    vtkErrorMacro(<< "Could not get data from input.");
-    return;
-    }
+  // // Make sure we actually have data.
+  // if (!data->GetPointData()->GetScalars())
+  //   {
+  //   vtkErrorMacro(<< "Could not get data from input.");
+  //   return;
+  //   }
 
-  TIFF* tif = reinterpret_cast<TIFF*>(this->TIFFPtr);
-  if (!tif)
+  if (this->TIFFPtr == NULL)
     {
-    vtkErrorMacro("Problem writing file.");
+    vtkErrorMacro("Problem writing data.");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return;
     }
-
-  // take into consideration the scalar type
-  if( data->GetScalarType() != VTK_UNSIGNED_CHAR
-   && data->GetScalarType() != VTK_UNSIGNED_SHORT
-   && data->GetScalarType() != VTK_FLOAT)
-    {
-    vtkErrorMacro("TIFFWriter only accepts unsigned char/short or float scalars!");
-    return;
-    }
+  //
+  // // take into consideration the scalar type
+  // if( data->GetScalarType() != VTK_UNSIGNED_CHAR
+  //  && data->GetScalarType() != VTK_UNSIGNED_SHORT
+  //  && data->GetScalarType() != VTK_FLOAT)
+  //   {
+  //   vtkErrorMacro("TIFFWriter only accepts unsigned char/short or float scalars!");
+  //   return;
+  //   }
 
   // if (this->Pages > 1)
   //   {
@@ -272,16 +276,14 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
   //   }
   // else
   //   {
-  //   // Now write the image for the current page/directory element.
-  //   int row = 0;
-  //   for (int idx2 = extent[4]; idx2 <= extent[5]; ++idx2)
+  //   // Now write the image for the current pfpt[5]; ++idx2)
   //     {
   //     for (int idx1 = extent[3]; idx1 >= extent[2]; idx1--)
   //       {
   //       void *ptr = data->GetScalarPointer(extent[0], idx1, idx2);
   //       if (TIFFWriteScanline(tif, static_cast<unsigned char*>(ptr), row, 0) < 0)
   //         {
-  //         this->SetErrorCode(vtkErrorCode::OutOfDiskSpaceError);
+  //         this->SetErrtiforCode(vtkErrorCode::OutOfDiskSpaceError);
   //         break;
   //         }
   //       ++row;
@@ -293,10 +295,9 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFileTrailer(ofstream *, vtkImageData *)
 {
-  TIFF* tif = reinterpret_cast<TIFF*>(this->TIFFPtr);
-  if( tif)
+  if(this->TIFFPtr)
     {
-    TIFFClose(tif);
+    TIFFClose(this->TIFFPtr);
     }
   else
     {

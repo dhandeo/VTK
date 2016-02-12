@@ -18,6 +18,10 @@
 
 #include "vtkImageWriter.h"
 
+extern "C" {
+  #include "vtk_tiff.h"
+}
+
 class VTKIOIMAGE_EXPORT vtkPTIFWriter : public vtkImageWriter
 {
 public:
@@ -33,7 +37,7 @@ protected:
   vtkPTIFWriter();
   ~vtkPTIFWriter() {}
 
-  void* TIFFPtr;
+  TIFF* TIFFPtr;
   int Compression;
   int Width;
   int Height;
