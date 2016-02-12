@@ -7,6 +7,7 @@ vtk_module(vtkDomainsMicroscopy
   PRIVATE_DEPENDS
     vtkIOXML
     vtkFiltersSources
+    vtktiff
   TEST_DEPENDS
     vtkTestingCore
     vtkTestingRendering

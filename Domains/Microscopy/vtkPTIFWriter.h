@@ -12,48 +12,38 @@
      PURPOSE.  See the above copyright notice for more information.
 
 =========================================================================*/
-// .NAME vtkPTIFWriter - read digital whole slide images supported by
-// PTIF library
-// .SECTION Description
-// vtkPTIFWriter is a source object that uses openslide library to
-// read multiple supported image formats used for whole slide images in
-// microscopy community.
-//
-// .SECTION See Also
-// vtkPTIFWriter
 
 #ifndef vtkPTIFWriter_h
 #define vtkPTIFWriter_h
 
-#include "vtkIOImageModule.h" // For export macro
-#include "vtkThreadedImageAlgorithm.h"
+#include "vtkImageWriter.h"
 
-
-
-class VTKIOIMAGE_EXPORT vtkPTIFWriter : public vtkThreadedImageAlgorithm
+class VTKIOIMAGE_EXPORT vtkPTIFWriter : public vtkImageWriter
 {
 public:
   static vtkPTIFWriter *New();
-  vtkTypeMacro(vtkPTIFWriter,vtkThreadedImageAlgorithm);
+  vtkTypeMacro(vtkPTIFWriter,vtkImageWriter);
   virtual void PrintSelf(ostream& os, vtkIndent indent);
 
-  vtkSetStringMacro(FileName);
-  vtkGetStringMacro(FileName);
-  void Write();
+  // Description:
+  // The main interface which triggers the writer to start.
+  virtual void Write();
 
 protected:
   vtkPTIFWriter();
   ~vtkPTIFWriter() {}
 
-  char *FileName;
+  void* TIFFPtr;
+  int Compression;
+  int Width;
+  int Height;
+  int Pages;
+  double XResolution;
+  double YResolution;
 
-  virtual void  ThreadedExecute (vtkImageData *inData, vtkImageData *outData, int extent[6], int threadId);
-  virtual void  ThreadedRequestData (vtkInformation *request, vtkInformationVector **inputVector,
-     vtkInformationVector *outputVector, vtkImageData ***inData,
-     vtkImageData **outData, int extent[6], int threadId);
-
-  virtual int RequestInformation (vtkInformation *, vtkInformationVector**, vtkInformationVector *);
-private:
+  virtual void WriteFile(ofstream *file, vtkImageData *data, int ext[6], int wExt[6]);
+  virtual void WriteFileHeader(ofstream *, vtkImageData *, int wExt[6]);
+  virtual void WriteFileTrailer(ofstream *, vtkImageData *);
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.
