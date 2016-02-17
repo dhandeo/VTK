@@ -46,7 +46,6 @@ int TestPTIFWriter(int argc, char** argv)
   vtkNew<vtkPTIFWriter> writer;
   writer->SetInputConnection(reader->GetOutputPort());
   writer->SetFileName("output.ptif");
-  writer->Update();
   writer->Write();
 
   return EXIT_SUCCESS;
