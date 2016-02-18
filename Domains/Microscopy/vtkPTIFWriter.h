@@ -49,6 +49,9 @@ protected:
   virtual void WriteFileHeader(ofstream *, vtkImageData *, int wExt[6]);
   virtual void WriteFileTrailer(ofstream *, vtkImageData *);
 
+  virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
+
+
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.
 };
