@@ -122,8 +122,10 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   uint32 h = this->Height;
 
   // Set mostly default tif tags
-  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
-  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, 256);
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, 256);
+  TIFFSetField(tif, TIFFTAG_TILEWIDTH, 256);
+  TIFFSetField(tif, TIFFTAG_TILELENGTH, 256);
   TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
   TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
@@ -205,9 +207,9 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
   // Compute tile name
   // Make sure we actually have data.
   extent[0] = 0;
-  extent[1] = 100;
+  extent[1] = 255;
   extent[2] = 0;
-  extent[3] = 100;
+  extent[3] = 255;
   extent[4] = 0;
   extent[5] = 0;
 
@@ -227,13 +229,11 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
     }
 
   void *inPtr = data->GetScalarPointer();
-  if (TIFFWriteRawTile(tif, static_cast<unsigned char*>(ptr), row, 0) < 0)
+  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), 256*256) < 0)
     {
-    this->SetErrtiforCode(vtkErrorCode::OutOfDiskSpaceError);
-    break;
+    vtkErrorMacro(<< "Error writing tile");
+    this->SetErrorCode(vtkErrorCode::FileFormatError);
     }
-  ++row;
-  }
 }
 
 

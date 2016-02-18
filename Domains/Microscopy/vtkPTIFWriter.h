@@ -16,13 +16,14 @@
 #ifndef vtkPTIFWriter_h
 #define vtkPTIFWriter_h
 
-#include "vtkImageWriter.h"
+#include "vtkDomainsMicroscopyModule.h" // For export macro
+#include "vtkImageWriter.h" // Image writer
 
 extern "C" {
-  #include "vtk_tiff.h"
+  #include "vtk_tiff.h" // tiff library
 }
 
-class VTKIOIMAGE_EXPORT vtkPTIFWriter : public vtkImageWriter
+class VTKDOMAINSMICROSCOPY_EXPORT vtkPTIFWriter : public vtkImageWriter
 {
 public:
   static vtkPTIFWriter *New();
