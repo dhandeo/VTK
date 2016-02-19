@@ -33,12 +33,15 @@
 int TestPTIFWriter(int argc, char** argv)
 {
   const char* rasterFileName = vtkTestUtilities::ExpandDataFileName(argc, argv,
-                                 "Data/usa_image.jpg");
+                                 "Data/Microscopy/small2.ndpi");
+
+  // const char* rasterFileName = vtkTestUtilities::ExpandDataFileName(argc, argv,
+  //                                "Data/usa_image.jpg");
 
   std::cout << "Got Filename: " << rasterFileName << std::endl;
 
   // Create reader to read shape file.
-  vtkNew<vtkJPEGReader> reader;
+  vtkNew<vtkOpenSlideReader> reader;
   reader->SetFileName(rasterFileName);
   reader->UpdateInformation();
   delete [] rasterFileName;
