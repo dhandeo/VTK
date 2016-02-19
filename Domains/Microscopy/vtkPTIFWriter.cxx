@@ -79,6 +79,7 @@ void vtkPTIFWriter::Write()
   extent[3] = 99;
   extent[4] = 0;
   extent[5] = 0;
+  for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
 
   vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
   exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
@@ -115,7 +116,7 @@ int vtkPTIFWriter::RequestInformation(
   int dataType = 0;
 
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
-  inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(), extent);
+  inInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(), extent);
   inInfo->Get(vtkDataObject::SPACING(), spacing);
   inInfo->Get(vtkDataObject::ORIGIN(), origin);
   components = inInfo->Get(vtkDataObject::FIELD_NUMBER_OF_COMPONENTS());
@@ -137,7 +138,7 @@ int vtkPTIFWriter::RequestUpdateExtent(
   int n = inputVector[0]->GetNumberOfInformationObjects();
   cout << "RequestUpdateExtent: " << n << "Information  Objects" << endl;
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
-  this->DataUpdateExtent[1] = 10;
+
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(),
               this->DataUpdateExtent, 6);
   return 1;
