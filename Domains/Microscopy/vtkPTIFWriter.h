@@ -30,6 +30,16 @@ public:
   vtkTypeMacro(vtkPTIFWriter,vtkImageWriter);
   virtual void PrintSelf(ostream& os, vtkIndent indent);
 
+  // Configurable parameters
+  vtkSetVector3Macro(Padding, unsigned char);
+  vtkGetVector3Macro(Padding, unsigned char);
+
+  vtkSetMacro(JPEGQuality, int);
+  vtkGetMacro(JPEGQuality, int);
+
+  vtkSetMacro(TileSize, int);
+  vtkGetMacro(TileSize, int);
+
   // Description:
   // The main interface which triggers the writer to start.
   virtual void Write();
@@ -38,14 +48,22 @@ protected:
   vtkPTIFWriter();
   ~vtkPTIFWriter() {}
 
+  // Internal variables
   TIFF* TIFFPtr;
+  int DataUpdateExtent[6];
+
+  //
   int Compression;
   int Width;
   int Height;
   int Pages;
   double XResolution;
   double YResolution;
-  int DataUpdateExtent[6];
+
+  // Three parameters that are configurable
+  unsigned char Padding[3];
+  int JPEGQuality;
+  int TileSize;
 
   virtual int RequestInformation(vtkInformation *request,
                                  vtkInformationVector **inputVector,

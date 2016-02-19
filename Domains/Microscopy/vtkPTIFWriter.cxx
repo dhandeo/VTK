@@ -37,8 +37,9 @@ vtkStandardNewMacro(vtkPTIFWriter);
 //----------------------------------------------------------------------------
 vtkPTIFWriter::vtkPTIFWriter()
   : TIFFPtr(NULL), Width(0), Height(0), Pages(0),
-    XResolution(-1.0), YResolution(-1.0)
+    XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256)
 {
+  this->SetPadding(255, 255, 255);
 }
 
 //----------------------------------------------------------------------------
@@ -74,9 +75,9 @@ void vtkPTIFWriter::Write()
   int extent[6];
 
   extent[0] = 0;
-  extent[1] = 99;
+  extent[1] = this->TileSize -1;
   extent[2] = 0;
-  extent[3] = 99;
+  extent[3] = this->TileSize -1;
   extent[4] = 0;
   extent[5] = 0;
   for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
@@ -93,10 +94,10 @@ void vtkPTIFWriter::Write()
   cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
   this->Update();
 
-  vtkImageData *input = this->GetInput();
-  int dim[3];
-  cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
-  //this->WriteTile(0,this->GetInput() , extent, 0);
+  // vtkImageData *input = this->GetInput();
+  // int dim[3];
+  // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
+  this->WriteTile(0,this->GetInput() , extent, 0);
   // this->WriteFileTrailer(0, 0);
 }
 
@@ -239,14 +240,14 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   // Set mostly default tif tags
   TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, 100);
   TIFFSetField(tif, TIFFTAG_IMAGELENGTH, 100);
-  TIFFSetField(tif, TIFFTAG_TILEWIDTH, 100);
-  TIFFSetField(tif, TIFFTAG_TILELENGTH, 100);
+  TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
+  TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
   TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
   TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
   TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-  TIFFSetField(tif, TIFFTAG_JPEGQUALITY, 75); // Parameter
+  TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
   TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
   TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, 6); // Always same for JPEG
 
