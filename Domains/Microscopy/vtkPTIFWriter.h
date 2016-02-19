@@ -45,6 +45,19 @@ protected:
   int Pages;
   double XResolution;
   double YResolution;
+  int DataUpdateExtent[6];
+
+  virtual int RequestInformation(vtkInformation *request,
+                                 vtkInformationVector **inputVector,
+                                 vtkInformationVector *outputVector);
+
+  virtual int RequestUpdateExtent(vtkInformation *request,
+                                  vtkInformationVector **inputVector,
+                                  vtkInformationVector *outputVector);
+
+  virtual int RequestData(vtkInformation* request,
+                          vtkInformationVector** inputVector,
+                          vtkInformationVector* outputVector);
 
   virtual void WriteFile(ofstream *file, vtkImageData *data, int ext[6], int wExt[6]);
   virtual void WriteFileHeader(ofstream *, vtkImageData *, int wExt[6]);

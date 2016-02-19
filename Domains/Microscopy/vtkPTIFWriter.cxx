@@ -19,6 +19,12 @@
 #include "vtkImageData.h"
 #include "vtkObjectFactory.h"
 #include "vtkPointData.h"
+#include "vtkJPEGWriter.h"
+#include "vtkNew.h"
+#include "vtkInformation.h"
+#include "vtkInformationVector.h"
+#include "vtkStreamingDemandDrivenPipeline.h"
+
 #include "vtkStreamingDemandDrivenPipeline.h"
 
 
@@ -39,7 +45,7 @@ vtkPTIFWriter::vtkPTIFWriter()
 void vtkPTIFWriter::Write()
 {
   // make sure the latest input is available.
-  this->GetInputAlgorithm()->Update();
+  this->GetInputAlgorithm()->UpdateInformation();
   this->SetErrorCode(vtkErrorCode::NoError);
   // Error checking
   if (this->GetInput() == NULL)
@@ -62,12 +68,120 @@ void vtkPTIFWriter::Write()
 
   this->UpdateProgress(0.0);
 
-  this->WriteFileHeader(0, this->GetInput(), wExtent);
+  // this->WriteFileHeader(0, this->GetInput(), wExtent);
 
   // Now stream the data
+  int extent[6];
 
-  this->WriteTile(0, this->GetInput(), wExtent, 0);
-  this->WriteFileTrailer(0, 0);
+  extent[0] = 0;
+  extent[1] = 99;
+  extent[2] = 0;
+  extent[3] = 99;
+  extent[4] = 0;
+  extent[5] = 0;
+
+  vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
+  exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
+
+  // vtkStreamingDemandDrivenPipeline::SetUpdateExtent(
+  //   this->GetInputInformation(0, 0), extent);
+  //
+  int *uExtent;
+  uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
+    this->GetInputInformation(0, 0));
+  cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
+  this->Update();
+
+  vtkImageData *input = this->GetInput();
+  int dim[3];
+  cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
+  //this->WriteTile(0,this->GetInput() , extent, 0);
+  // this->WriteFileTrailer(0, 0);
+}
+
+//---------------------------------------------------------------------------
+int vtkPTIFWriter::RequestInformation(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *vtkNotUsed(outputVector))
+{
+  // Check to make sure that all input information agrees
+  // this->MismatchedInputs = 0;
+
+  double spacing[3];
+  double origin[3];
+  int extent[6];
+  int components = 0;
+  int dataType = 0;
+
+  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+  inInfo->Get(vtkStreamingDemandDrivenPipeline::WHOLE_EXTENT(), extent);
+  inInfo->Get(vtkDataObject::SPACING(), spacing);
+  inInfo->Get(vtkDataObject::ORIGIN(), origin);
+  components = inInfo->Get(vtkDataObject::FIELD_NUMBER_OF_COMPONENTS());
+  dataType = inInfo->Get(vtkDataObject::FIELD_ARRAY_TYPE());
+
+  for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
+  cout << "RequestInformation: " << extent[0] << ", " << extent[1] << endl;
+  return 1;
+}
+
+
+//--------------------------------------------------------------------------
+int vtkPTIFWriter::RequestUpdateExtent(
+  vtkInformation *vtkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *vtkNotUsed(outputVector))
+{
+  // Set the UpdateExtent from the DataUpdateExtent for the current slice
+  int n = inputVector[0]->GetNumberOfInformationObjects();
+  cout << "RequestUpdateExtent: " << n << "Information  Objects" << endl;
+  vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+  this->DataUpdateExtent[1] = 10;
+  inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(),
+              this->DataUpdateExtent, 6);
+  return 1;
+}
+
+//--------------------------------------------------------------------------
+int vtkPTIFWriter::RequestData(
+  vtkInformation* vtkNotUsed(request),
+  vtkInformationVector** inputVector,
+  vtkInformationVector* vtkNotUsed(outputVector))
+{
+    vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
+    vtkImageData *input = vtkImageData::SafeDownCast(inInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+    // Check the extents being requested
+    int dim[3];
+    input->GetDimensions(dim);
+
+    int *extents;
+    extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
+    cout << "RequestData: " << extents[0] << ", " << extents[1] << endl;
+    cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
+    // // Error checking
+    // if (input == NULL)
+    //   {
+    //   // Close file, set MINCFileID to zero
+    //   this->CloseNetCDFFile(this->MINCFileId);
+    //   this->MINCFileId = 0;
+    //   vtkErrorMacro(<<"Write: Please specify an input!");
+    //   return 0;
+    //   }
+    //
+    // // Call WriteMINCData for each input
+    // if (this->WriteMINCData(
+    //       input,
+    //       timeStep,
+    //       vtkStreamingDemandDrivenPipeline::GetWholeExtent(inInfo),
+    //       vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo)) == 0)
+    //   {
+    //   return 0;
+    //   }
+    // }
+
+  return 1;
 }
 
 //----------------------------------------------------------------------------
@@ -122,10 +236,10 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   uint32 h = this->Height;
 
   // Set mostly default tif tags
-  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, 256);
-  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, 256);
-  TIFFSetField(tif, TIFFTAG_TILEWIDTH, 256);
-  TIFFSetField(tif, TIFFTAG_TILELENGTH, 256);
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, 100);
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, 100);
+  TIFFSetField(tif, TIFFTAG_TILEWIDTH, 100);
+  TIFFSetField(tif, TIFFTAG_TILELENGTH, 100);
   TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
   TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
@@ -206,14 +320,19 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
 {
   // Compute tile name
   // Make sure we actually have data.
-  extent[0] = 0;
-  extent[1] = 255;
-  extent[2] = 0;
-  extent[3] = 255;
-  extent[4] = 0;
-  extent[5] = 0;
+  int ex[6];
+  data->GetExtent(ex);
+  cout << "Data: " << ex[0] << ", " << ex[1] << endl;
+  cout << "Extent: " << extent[0] << ", " << extent[1] << endl;
 
-  this->SetUpdateExtent(extent);
+
+  vtkNew<vtkJPEGWriter> vtkWr;
+  vtkWr->SetFileName("temp.jpg");
+  vtkWr->SetQuality(70);
+  vtkWr->ProgressiveOff();
+  vtkWr->SetInputData(data);
+  vtkWr->Write();
+  return;
 
   if (!data->GetPointData()->GetScalars())
     {
@@ -229,7 +348,7 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
     }
 
   void *inPtr = data->GetScalarPointer();
-  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), 256*256) < 0)
+  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), 100*100) < 0)
     {
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
