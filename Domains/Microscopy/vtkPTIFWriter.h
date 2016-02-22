@@ -49,7 +49,8 @@ protected:
   ~vtkPTIFWriter() {}
 
   // Internal variables
-  TIFF* TIFFPtr;
+  TIFF* TIFFPtr; // Pointer to tif file opened for read / write
+  int CurDir; // Current directory in tiff file
   int DataUpdateExtent[6];
 
   //
@@ -64,6 +65,7 @@ protected:
   unsigned char Padding[3];
   int JPEGQuality;
   int TileSize;
+
 
   virtual int RequestInformation(vtkInformation *request,
                                  vtkInformationVector **inputVector,
@@ -81,6 +83,8 @@ protected:
   virtual void WriteFileHeader(ofstream *, vtkImageData *, int wExt[6]);
   virtual void WriteFileTrailer(ofstream *, vtkImageData *);
 
+
+  void SelectDirectory(int dir);
   virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
 
 

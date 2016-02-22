@@ -36,7 +36,7 @@ vtkStandardNewMacro(vtkPTIFWriter);
 
 //----------------------------------------------------------------------------
 vtkPTIFWriter::vtkPTIFWriter()
-  : TIFFPtr(NULL), Width(0), Height(0), Pages(0),
+  : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0),
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256)
 {
   this->SetPadding(255, 255, 255);
@@ -174,6 +174,15 @@ int vtkPTIFWriter::RequestData(
   return 1;
 }
 
+
+void vtkPTIFWriter::SelectDirectory(int dir)
+{
+
+  if(this->CurDir != dir) {
+    TIFFSetDirectory(this->TIFFPtr, dir);
+  }
+
+}
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
 {
