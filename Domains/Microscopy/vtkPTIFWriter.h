@@ -66,7 +66,6 @@ protected:
   int JPEGQuality;
   int TileSize;
 
-
   virtual int RequestInformation(vtkInformation *request,
                                  vtkInformationVector **inputVector,
                                  vtkInformationVector *outputVector);

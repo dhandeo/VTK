@@ -67,9 +67,12 @@ void vtkPTIFWriter::Write()
   wExtent = vtkStreamingDemandDrivenPipeline::GetWholeExtent(
     this->GetInputInformation(0, 0));
 
+  // vtkInformation *inf = this->(0, 0);
+  // inf->Print(cout);
+
   this->UpdateProgress(0.0);
 
-  // this->WriteFileHeader(0, this->GetInput(), wExtent);
+  this->WriteFileHeader(0, this->GetInput(), wExtent);
 
   // Now stream the data
   int extent[6];
@@ -85,8 +88,8 @@ void vtkPTIFWriter::Write()
   // vtkImageData *input = this->GetInput();
   // int dim[3];
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
-  this->WriteTile(0,this->GetInput() , extent, 0);
-  // this->WriteFileTrailer(0, 0);
+  this->WriteTile(0, this->GetInput(), extent, 0);
+  this->WriteFileTrailer(0, 0);
 }
 
 //---------------------------------------------------------------------------
@@ -187,6 +190,13 @@ void vtkPTIFWriter::SelectDirectory(int dir)
 void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
 {
   int dims[3];
+  cout << "InHeader " << endl;
+
+  // vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
+  // exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
+  this->Update();
+  // data = this->InputDataImage();
+  // data->Print(cout);
   data->GetDimensions(dims);
   int scomponents = data->GetNumberOfScalarComponents();
   int stype = data->GetScalarType();
@@ -235,8 +245,8 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   uint32 h = this->Height;
 
   // Set mostly default tif tags
-  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, 100);
-  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, 100);
+  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, this->TileSize);
+  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
@@ -337,7 +347,7 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
   data->GetExtent(ex);
   cout << "Data: " << ex[0] << ", " << ex[1] << endl;
   cout << "Extent: " << extent[0] << ", " << extent[1] << endl;
-
+  // data->Print(cout);
 
   vtkNew<vtkJPEGWriter> vtkWr;
   vtkWr->SetFileName("temp.jpg");
@@ -345,7 +355,6 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
   vtkWr->ProgressiveOff();
   vtkWr->SetInputData(data);
   vtkWr->Write();
-  return;
 
   if (!data->GetPointData()->GetScalars())
     {
@@ -361,7 +370,7 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
     }
 
   void *inPtr = data->GetScalarPointer();
-  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), 100*100) < 0)
+  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), this->TileSize*this->TileSize) < 0)
     {
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);

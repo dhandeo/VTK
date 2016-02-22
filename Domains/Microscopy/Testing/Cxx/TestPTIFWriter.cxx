@@ -44,11 +44,12 @@ int TestPTIFWriter(int argc, char** argv)
   vtkNew<vtkOpenSlideReader> reader;
   reader->SetFileName(rasterFileName);
   reader->UpdateInformation();
+  // reader->Print(std::cout);
   delete [] rasterFileName;
 
   vtkNew<vtkPTIFWriter> writer;
   writer->SetInputConnection(reader->GetOutputPort());
-  writer->SetFileName("output.ptif");
+  writer->SetFileName("output.tif");
   writer->Write();
 
   return EXIT_SUCCESS;
