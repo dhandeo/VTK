@@ -82,18 +82,6 @@ void vtkPTIFWriter::Write()
   extent[5] = 0;
   for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
 
-  vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
-  exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
-
-  // vtkStreamingDemandDrivenPipeline::SetUpdateExtent(
-  //   this->GetInputInformation(0, 0), extent);
-  //
-  int *uExtent;
-  uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
-    this->GetInputInformation(0, 0));
-  cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
-  this->Update();
-
   // vtkImageData *input = this->GetInput();
   // int dim[3];
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
@@ -320,8 +308,22 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
 void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
                               int extent[6], int*)
 {
-  // Compute tile name
   // Make sure we actually have data.
+
+  vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
+  exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
+
+  // vtkStreamingDemandDrivenPipeline::SetUpdateExtent(
+  //   this->GetInputInformation(0, 0), extent);
+  //
+  int *uExtent;
+  uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
+    this->GetInputInformation(0, 0));
+  cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
+  this->Update();
+
+  // Compute tile name
+
   int ex[6];
   data->GetExtent(ex);
   cout << "Data: " << ex[0] << ", " << ex[1] << endl;
