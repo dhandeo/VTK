@@ -303,6 +303,53 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
   // TODO: Add the logic of calling write tile in a loop
   cout << "PYRAMID START" << endl;
   ProcessTile(std::string("t"));
+  // tile_stack.push("t");
+  // int count = 0;
+  // while(!tile_stack.empty() && count < 2)
+  //   {
+  //     // Looking for current tile
+  //     std::string &current_tile = tile_stack.top();
+  //     cout << "PYRAMID: " << tile_stack.size() << endl;
+  //
+  //     // If belongs to base image then get the images
+  //     if(current_tile.length() >= 4)
+  //       {
+  //       cout << "PYRAMID: Got " << current_tile << endl;
+  //       tile_stack.pop();
+  //       }
+  //     else
+  //       {
+  //       // Get parents
+  //       cout << "PYRAMID: Pushing parents of " << current_tile << endl;
+  //       tile_stack.push(current_tile + 'q');
+  //       tile_stack.push(current_tile + 'r');
+  //       tile_stack.push(current_tile + 's');
+  //       tile_stack.push(current_tile + 't');
+  //       }
+  //
+  //       cout << "PYRAMID: Processed " << current_tile << endl;
+  //       tile_stack.pop();
+  //       count ++;
+        // Combine
+        // newim = Image.new('RGB', (tilesize * 2, tilesize * 2), color=None)
+        //
+        // # Combine
+        // newim.paste(q, (0, 0))
+        // newim.paste(r, (tilesize, 0))
+        // newim.paste(s, (tilesize, tilesize))
+        // newim.paste(t, (0, tilesize))
+        //
+        // # Resize
+        // smallim = newim.resize((tilesize, tilesize), Image.ANTIALIAS)
+        //
+        // # Compress
+        // output = StringIO.StringIO()
+        // smallim.save(output, format='JPEG')
+        // contents = output.getvalue()
+        // output.close()
+
+    // }
+
 
   if (this->TIFFPtr == NULL)
     {
