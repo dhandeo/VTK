@@ -1,4 +1,5 @@
 vtk_module(vtkDomainsMicroscopy
+  DESCRIPTION "Readers and writers supporting whole slide images for microscopy domain"
   DEPENDS
     vtkCommonDataModel
     vtkCommonExecutionModel
