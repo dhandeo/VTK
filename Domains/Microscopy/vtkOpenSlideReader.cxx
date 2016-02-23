@@ -85,11 +85,6 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
   data->GetPointData()->GetScalars()->SetName("OpenSlideImage");
   //// Leverage openslide to read the region
 
-  // int inExtent[6];
-  // data->GetExtent(inExtent);
-  // cout << inExtent[0] << ", " << inExtent[1] << endl;
-  // cout << inExtent[2] << ", " << inExtent[3] << endl;
-
   int w = inExtent[1] - inExtent[0] + 1;
   int h = inExtent[3]- inExtent[2] + 1;
   unsigned char * buffer = new unsigned char[w * h * 4];
