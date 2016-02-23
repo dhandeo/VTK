@@ -26,6 +26,8 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 
 #include "vtkStreamingDemandDrivenPipeline.h"
+#include <stack>
+#include <string>
 
 
 #if _MSC_VER
@@ -89,7 +91,8 @@ void vtkPTIFWriter::Write()
   // vtkImageData *input = this->GetInput();
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
   // int dim[3];
-  this->WriteTile(0, this->GetInput(), extent, 0);
+  this->WriteFile(0,0,extent,0);
+  // this->WriteTile(0, this->GetInput(), extent, 0);
   this->WriteFileTrailer(0, 0);
 }
 
@@ -275,11 +278,31 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     }
   }
 
+void ProcessTile(const std::string &current_tile)
+  {
+  // If belongs to base image then get the images
+  if(current_tile.length() >= 4)
+    {
+    cout << "PYRAMID: Got " << current_tile << endl;
+    return;
+    }
+
+  // Get parents
+  ProcessTile(current_tile + 'q');
+  ProcessTile(current_tile + 'r');
+  ProcessTile(current_tile + 's');
+  ProcessTile(current_tile + 't');
+
+  cout << "PYRAMID: Processing " << current_tile << endl;
+  }
+
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
                               int extent[6], int*)
 {
   // TODO: Add the logic of calling write tile in a loop
+  cout << "PYRAMID START" << endl;
+  ProcessTile(std::string("t"));
 
   if (this->TIFFPtr == NULL)
     {
