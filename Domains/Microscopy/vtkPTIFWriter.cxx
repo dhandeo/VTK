@@ -45,9 +45,6 @@ vtkPTIFWriter::vtkPTIFWriter()
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::Write()
 {
-  // make sure the latest input is available.
-  this->GetInputAlgorithm()->UpdateInformation();
-  this->SetErrorCode(vtkErrorCode::NoError);
   // Error checking
   if (this->GetInput() == NULL)
     {
@@ -62,19 +59,23 @@ void vtkPTIFWriter::Write()
     }
 
   // Fill in image information.
-  this->GetInputExecutive(0, 0)->UpdateInformation();
-  int *wExtent;
-  wExtent = vtkStreamingDemandDrivenPipeline::GetWholeExtent(
-    this->GetInputInformation(0, 0));
+  vtkDemandDrivenPipeline::SafeDownCast(
+    this->GetInputExecutive(0, 0))->UpdateInformation();
+  this->UpdateInformation();
 
-  // vtkInformation *inf = this->(0, 0);
-  // inf->Print(cout);
+  // int *wExtent;
+  // wExtent = vtkStreamingDemandDrivenPipeline::GetWholeExtent(
+  //   this->GetInputInformation(0, 0));
+  //
+  // // vtkInformation *inf = this->(0, 0);
+  // // inf->Print(cout);
 
   this->UpdateProgress(0.0);
 
-  this->WriteFileHeader(0, this->GetInput(), wExtent);
-
-  // Now stream the data
+  // Updating is the responsibility of subfunction
+  this->WriteFileHeader(0, 0, 0);
+  //
+  // // Now stream the data
   int extent[6];
 
   extent[0] = 0;
@@ -86,8 +87,8 @@ void vtkPTIFWriter::Write()
   for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
 
   // vtkImageData *input = this->GetInput();
-  // int dim[3];
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
+  // int dim[3];
   this->WriteTile(0, this->GetInput(), extent, 0);
   this->WriteFileTrailer(0, 0);
 }
@@ -112,10 +113,15 @@ int vtkPTIFWriter::RequestInformation(
   inInfo->Get(vtkDataObject::SPACING(), spacing);
   inInfo->Get(vtkDataObject::ORIGIN(), origin);
   components = inInfo->Get(vtkDataObject::FIELD_NUMBER_OF_COMPONENTS());
-  dataType = inInfo->Get(vtkDataObject::FIELD_ARRAY_TYPE());
+  int hup = this->GetInput()->GetScalarType(inInfo);
+  cout << "DataType: " << hup << " Should be " << VTK_UNSIGNED_CHAR << endl;
+
+  this->DataType = dataType;
+  this->NumScalars = components;
 
   for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
   cout << "RequestInformation: " << extent[0] << ", " << extent[1] << endl;
+
   return 1;
 }
 
@@ -177,7 +183,6 @@ int vtkPTIFWriter::RequestData(
   return 1;
 }
 
-
 void vtkPTIFWriter::SelectDirectory(int dir)
 {
 
@@ -186,20 +191,24 @@ void vtkPTIFWriter::SelectDirectory(int dir)
   }
 
 }
+
 //----------------------------------------------------------------------------
-void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
+void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6])
 {
   int dims[3];
   cout << "InHeader " << endl;
+  this->UpdateInformation();
 
-  // vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
-  // exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
-  this->Update();
-  // data = this->InputDataImage();
-  // data->Print(cout);
-  data->GetDimensions(dims);
-  int scomponents = data->GetNumberOfScalarComponents();
-  int stype = data->GetScalarType();
+  // Get the input information
+  int extent[6];
+  vtkStreamingDemandDrivenPipeline::GetWholeExtent(
+    this->GetInputInformation(0, 0), extent);
+
+  vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
+
+  vtkImageData * data = this->GetInput();
+  int stype = data->GetScalarType(this->GetInputInformation(0, 0));
+  int scomponents = data->GetNumberOfScalarComponents(this->GetInputInformation(0, 0));
 
   // Make sure we have data in correct format
   if(stype != VTK_UNSIGNED_CHAR)
@@ -216,10 +225,10 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
     }
 
   // Find the width/height of the images
-  this->Width = wExt[1] - wExt[0] + 1;
-  this->Height = wExt[3] - wExt[2] + 1;
+  this->Width = extent[1] - extent[0] + 1;
+  this->Height = extent[3] - extent[2] + 1;
   // Check if we need to write an image stack (pages > 2).
-  this->Pages = wExt[5] - wExt[4] + 1;
+  this->Pages = extent[5] - extent[4] + 1;
 
   cout << this->FileName << endl;
   cout << "Width: " << this->Width << endl;
@@ -227,9 +236,11 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
   cout << "Pages: " << this->Pages << endl;
 
   // Check the resolution too, assume we store it in metric (as in reader).
+  // TODO: Resolution is ignored
   this->XResolution = 10.0 / data->GetSpacing()[0];
   this->YResolution = 10.0 / data->GetSpacing()[1];
 
+  // Open the TIFF
   TIFF* tif = TIFFOpen(this->FileName, "w");
   if(tif == NULL)
     {
@@ -241,22 +252,19 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
 
   cout << "Done opening .." << endl;
 
-  uint32 w = this->Width;
-  uint32 h = this->Height;
-
   // Set mostly default tif tags
   TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_IMAGELENGTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
   TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
-  TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+  // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
   TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
   TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
-  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
   TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-  TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
-  TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
-  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, 6); // Always same for JPEG
+  // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
+  TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
+  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
 
   // Make sure that the
   if (tif == NULL)
@@ -271,90 +279,47 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data, int wExt[6])
 void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
                               int extent[6], int*)
 {
-  // // Make sure we actually have data.
-  // if (!data->GetPointData()->GetScalars())
-  //   {
-  //   vtkErrorMacro(<< "Could not get data from input.");
-  //   return;
-  //   }
+  // TODO: Add the logic of calling write tile in a loop
+
   if (this->TIFFPtr == NULL)
     {
     vtkErrorMacro("Problem writing data.");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return;
     }
-  //
-  // // take into consideration the scalar type
-  // if( data->GetScalarType() != VTK_UNSIGNED_CHAR
-  //  && data->GetScalarType() != VTK_UNSIGNED_SHORT
-  //  && data->GetScalarType() != VTK_FLOAT)
-  //   {
-  //   vtkErrorMacro("TIFFWriter only accepts unsigned char/short or float scalars!");
-  //   return;
-  //   }
-
-  // if (this->Pages > 1)
-  //   {
-  //   // Call the correct templated function for the input
-  //   void *inPtr = data->GetScalarPointer();
-  //
-  //   switch (data->GetScalarType())
-  //     {
-  //     vtkTemplateMacro(this->WriteVolume((VTK_TT *)(inPtr)));
-  //     default:
-  //       vtkErrorMacro("UpdateFromFile: Unknown data type");
-  //     }
-  //   }
-  // else
-  //   {
-  //   // Now write the image for the current pfpt[5]; ++idx2)
-  //     {
-  //     for (int idx1 = extent[3]; idx1 >= extent[2]; idx1--)
-  //       {
-  //       void *ptr = data->GetScalarPointer(extent[0], idx1, idx2);
-  //       if (TIFFWriteScanline(tif, static_cast<unsigned char*>(ptr), row, 0) < 0)
-  //         {
-  //         this->SetErrtiforCode(vtkErrorCode::OutOfDiskSpaceError);
-  //         break;
-  //         }
-  //       ++row;
-  //       }
-  //     }
-  //   }
 }
 
 
-void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
-                              int extent[6], int*)
+void vtkPTIFWriter::WriteTile(ofstream * ignored_stream, vtkImageData *ignored_data,
+                              int extent[6], int* ignored_index)
 {
-  // Make sure we actually have data.
-
+  // Set the requested extents
+  cout << "NeedExtents: " << extent[0] << ", " << extent[1] << endl;
   vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
   exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
 
-  // vtkStreamingDemandDrivenPipeline::SetUpdateExtent(
-  //   this->GetInputInformation(0, 0), extent);
-  //
-  int *uExtent;
-  uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
-    this->GetInputInformation(0, 0));
-  cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
+  // Update the data
+  // For debug
+  // int *uExtent;
+  // uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
+  //   this->GetInputInformation(0, 0));
+  // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
   this->Update();
 
-  // Compute tile name
-
+  // Access the image data
+  vtkImageData *data = this->GetInput();
   int ex[6];
   data->GetExtent(ex);
   cout << "Data: " << ex[0] << ", " << ex[1] << endl;
   cout << "Extent: " << extent[0] << ", " << extent[1] << endl;
-  // data->Print(cout);
 
-  vtkNew<vtkJPEGWriter> vtkWr;
-  vtkWr->SetFileName("temp.jpg");
-  vtkWr->SetQuality(70);
-  vtkWr->ProgressiveOff();
-  vtkWr->SetInputData(data);
-  vtkWr->Write();
+  // for debug
+  // vtkNew<vtkJPEGWriter> vtkWr;
+  // vtkWr->SetFileName("temp.jpg");
+  // vtkWr->SetQuality(70);
+  // vtkWr->ProgressiveOff();
+  // vtkWr->SetInputData(data);
+  // vtkWr->Write();
 
   if (!data->GetPointData()->GetScalars())
     {
@@ -369,8 +334,13 @@ void vtkPTIFWriter::WriteTile(ofstream *, vtkImageData *data,
     return;
     }
 
+  // Compute tile name
+  int tNum = TIFFComputeTile(this->TIFFPtr, 0, 0, 0, 0);
+  cout << "TNum: " << tNum << endl;
+
+  // Write out the tile
   void *inPtr = data->GetScalarPointer();
-  if (TIFFWriteRawTile(this->TIFFPtr, 0, static_cast<unsigned char*>(inPtr), this->TileSize*this->TileSize) < 0)
+  if (TIFFWriteEncodedTile(this->TIFFPtr, tNum, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
     {
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);

@@ -52,6 +52,8 @@ protected:
   TIFF* TIFFPtr; // Pointer to tif file opened for read / write
   int CurDir; // Current directory in tiff file
   int DataUpdateExtent[6];
+  int DataType;
+  int NumScalars;
 
   //
   int Compression;
