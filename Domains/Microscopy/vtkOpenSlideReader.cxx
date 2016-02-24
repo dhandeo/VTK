@@ -67,7 +67,7 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
       outInfo,
       inExtent);
 
-  // cout << "OpenSlideReaderDataInf: " << inExtent[0] << ", " << inExtent[1] << ", " << inExtent[2] << ", " << inExtent[3] << endl;
+  cout << "OpenSlideReaderDataInf: " << inExtent[0] << ", " << inExtent[1] << ", " << inExtent[2] << ", " << inExtent[3] << endl;
 
   vtkImageData *data = this->AllocateOutputData(output, outInfo);
   //data->GetExtent(this->OutputExtent);

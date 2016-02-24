@@ -150,6 +150,9 @@ int vtkPTIFWriter::RequestUpdateExtent(
 
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(),
               this->DataUpdateExtent, 6);
+
+  cout << "RequestUpdateExtent: " << endl;
+  this->Modified();
   return 1;
 }
 
@@ -168,7 +171,7 @@ int vtkPTIFWriter::RequestData(
 
     int *extents;
     extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
-    cout << "RequestData: " << extents[0] << ", " << extents[1] << endl;
+    cout << "RequestData: " << extents[0] << ", " << extents[1] << ", " << extents[2] <<", " << extents[3] <<endl;
     // cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
 
   return 1;
@@ -315,29 +318,47 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
   int extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
+  cout << "PYRAMID: Got " << current_tile << endl;
 
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
   int level = this->MaxLevel - current_tile.length();
 
   // If belongs to base image then get the images
-  if(current_tile.length() >= 2)
+  if(current_tile.length() >= this->MaxLevel + 1)
     {
-    cout << "PYRAMID: Got " << current_tile << endl;
+    cout << "PYRAMID: Input " << current_tile << endl;
     // Get data from input
-    cout << "NeedExtents: " << extents[0] << ", " << extents[1] << endl;
+    cout << "NeedExtents: " << extents[0] << ", " << extents[1] << ", " << extents[2] << ", " << extents[3] << endl;
+    this->DataUpdateExtent[0] = extents[0];
+    this->DataUpdateExtent[1] = extents[1];
+    this->DataUpdateExtent[2] = extents[2];
+    this->DataUpdateExtent[3] = extents[3];
+    this->DataUpdateExtent[4] = extents[4];
+    this->DataUpdateExtent[5] = extents[5];
+
     vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
     exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+    this->Update();
 
     // Update the data
     // For debug, verification
     // int *uExtent;
     // uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
     //   this->GetInputInformation(0, 0));
-    // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
-    this->Update();
+    // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << ", " << uExtent[2] <<", " << uExtent[3] <<endl;
+
+    // for debug
+    std::string fname(current_tile);
+    vtkNew<vtkJPEGWriter> vtkWr;
+    vtkWr->SetFileName(fname.append("_temp.jpg").c_str());
+    vtkWr->SetQuality(70);
+    vtkWr->ProgressiveOff();
+    vtkWr->SetInputData(this->GetInput());
+    vtkWr->Write();
+    cout << "Wrote" << current_tile << endl;
     this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
-    return 0;
+    return this->GetInput();
     }
 
   // Get parents
@@ -348,11 +369,15 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
 
   // Combine
   vtkNew<vtkImageData> big;
+  big->SetDimensions(this->TileSize*2, this->TileSize*2, 1);
+  big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+  big->SetExtent(0,511,0,511,0,0);
 
-  q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, qExtent);
-  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, rExtent);
-  s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, sExtent);
-  t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, tExtent);
+  cout << "PYRAMID: Scalars allocated" << endl;
+  q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
+  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
+  s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
+  t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
@@ -360,10 +385,23 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   shrinkFilter->SetShrinkFactors(2,2,1);
   shrinkFilter->Update();
 
-  cout << "PYRAMID: Processed" << current_tile << endl;
   // Write it out
+  // for debug
+  std::string fname(current_tile);
+  vtkNew<vtkJPEGWriter> vtkWr;
+  vtkWr->SetFileName(fname.append("_temp.jpg").c_str());
+  vtkWr->SetQuality(70);
+  vtkWr->ProgressiveOff();
+  vtkWr->SetInputData(shrinkFilter->GetOutput());
+  vtkWr->Write();
 
   this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
+  cout << "PYRAMID: Processed: " << current_tile << endl;
+
+  vtkNew<vtkImageData> ret;
+  ret->ShallowCopy(shrinkFilter->GetOutput());
+  cout << "PYRAMID: RETURN" << current_tile << endl;
+  // rt->Print(cout);
   return shrinkFilter->GetOutput();
   }
 
@@ -379,7 +417,17 @@ void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], in
 
   cout << "PYRAMID START" << endl;
   // Recursively build pyramid
-  ProcessTile(std::string("t"));
+  vtkImageData *t = ProcessTile(std::string("t"));
+  cout << t << endl;
+  // t->Print(cout);
+  cout << "PYRAMID END" << endl;
+  vtkNew<vtkJPEGWriter> vtkWr;
+  vtkWr->SetFileName("temp.jpg");
+  vtkWr->SetQuality(70);
+  vtkWr->ProgressiveOff();
+  vtkWr->SetInputData(data);
+  vtkWr->Write();
+  cout << "PYRAMID END" << endl;
 }
 
 
