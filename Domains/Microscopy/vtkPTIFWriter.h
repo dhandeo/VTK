@@ -46,6 +46,7 @@ public:
   // The main interface which triggers the writer to start.
   virtual void Write();
   void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
+  int ComputeMaxLevel();
 
 protected:
   vtkPTIFWriter();

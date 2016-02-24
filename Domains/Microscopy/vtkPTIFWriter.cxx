@@ -219,9 +219,7 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
   this->Width = extent[1] - extent[0] + 1;
   this->Height = extent[3] - extent[2] + 1;
 
-  int max = std::max(this->Width, this->Height);
-  max /= this->TileSize;
-
+  this->MaxLevel = this->ComputeMaxLevel();
 
   // Check if we need to write an image stack (pages > 2).
   this->Pages = extent[5] - extent[4] + 1;
@@ -229,7 +227,7 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
   cout << this->FileName << endl;
   cout << "Width: " << this->Width << endl;
   cout << "Height: " << this->Height << endl;
-  cout << "Pages: " << this->Pages << endl;
+  cout << "MaxLevel: " << this->MaxLevel << endl;
 
   // Check the resolution too, assume we store it in metric (as in reader).
   // TODO: Resolution is ignored
@@ -269,6 +267,15 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return;
     }
+  }
+
+
+int vtkPTIFWriter::ComputeMaxLevel()
+  {
+  // Compute max level from Width and Height
+  int max = std::max(this->Width, this->Height);
+  max /= this->TileSize;
+  return max;
   }
 
 void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int * ext)
@@ -363,63 +370,16 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], int wExt[6])
 {
-  // TODO: Add the logic of calling write tile in a loop
-  cout << "PYRAMID START" << endl;
-  ProcessTile(std::string("t"));
-  // tile_stack.push("t");
-  // int count = 0;
-  // while(!tile_stack.empty() && count < 2)
-  //   {
-  //     // Looking for current tile
-  //     std::string &current_tile = tile_stack.top();
-  //     cout << "PYRAMID: " << tile_stack.size() << endl;
-  //
-  //     // If belongs to base image then get the images
-  //     if(current_tile.length() >= 4)
-  //       {
-  //       cout << "PYRAMID: Got " << current_tile << endl;
-  //       tile_stack.pop();
-  //       }
-  //     else
-  //       {
-  //       // Get parents
-  //       cout << "PYRAMID: Pushing parents of " << current_tile << endl;
-  //       tile_stack.push(current_tile + 'q');
-  //       tile_stack.  vtkImageData *data = this->GetInput();
-  //       tile_stack.push(current_tile + 's');
-  //       tile_stack.push(current_tile + 't');
-  //       }
-  //
-  //       cout << "PYRAMID: Processed " << current_tile << endl;
-  //       tile_stack.pop();
-  //       count ++;
-        // Combine
-        // newim = Image.new('RGB', (tilesize * 2, tilesize * 2), color=None)
-        //
-        // # Combine
-        // newim.paste(q, (0, 0))
-        // newim.paste(r, (tilesize, 0))
-        // newim.paste(s, (tilesize, tilesize))
-        // newim.paste(t, (0, tilesize))
-        //
-        // # Resize
-        // smallim = newim.resize((tilesize, tilesize), Image.ANTIALIAS)
-        //
-        // # Compress
-        // output = StringIO.StringIO()
-        // smallim.save(output, format='JPEG')
-        // contents = output.getvalue()
-        // output.close()
-
-    // }
-
-
   if (this->TIFFPtr == NULL)
     {
     vtkErrorMacro("Problem writing data.");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return;
     }
+
+  cout << "PYRAMID START" << endl;
+  // Recursively build pyramid
+  ProcessTile(std::string("t"));
 }
 
 
