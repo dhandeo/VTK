@@ -292,12 +292,15 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(std::string & tileName, int * ext
   ext[5] = 0;
   }
 
-void ProcessTile(const std::string &current_tile)
+void vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
   // If belongs to base image then get the images
   if(current_tile.length() >= 4)
     {
     cout << "PYRAMID: Got " << current_tile << endl;
+    int extents[6];
+    // Compute extents
+    this->WriteTile(0, 0, extents, 0); // Only extent is useful parameter
     return;
     }
 

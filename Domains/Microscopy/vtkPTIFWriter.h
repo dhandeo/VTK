@@ -87,6 +87,7 @@ protected:
 
   void SelectDirectory(int dir);
   virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
+  void ProcessTile(const std::string &current_tile);
   void ComputeExtentsFromTileName(std::string & tileName, int * ext);
 
 
