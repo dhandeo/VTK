@@ -87,6 +87,7 @@ protected:
 
   void SelectDirectory(int dir);
   virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
+  void ComputeExtentsFromTileName(std::string & tileName, int * ext);
 
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.

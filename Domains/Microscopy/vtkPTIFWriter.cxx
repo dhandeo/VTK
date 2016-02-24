@@ -162,26 +162,6 @@ int vtkPTIFWriter::RequestData(
     extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
     cout << "RequestData: " << extents[0] << ", " << extents[1] << endl;
     cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
-    // // Error checking
-    // if (input == NULL)
-    //   {
-    //   // Close file, set MINCFileID to zero
-    //   this->CloseNetCDFFile(this->MINCFileId);
-    //   this->MINCFileId = 0;
-    //   vtkErrorMacro(<<"Write: Please specify an input!");
-    //   return 0;
-    //   }
-    //
-    // // Call WriteMINCData for each input
-    // if (this->WriteMINCData(
-    //       input,
-    //       timeStep,
-    //       vtkStreamingDemandDrivenPipeline::GetWholeExtent(inInfo),
-    //       vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo)) == 0)
-    //   {
-    //   return 0;
-    //   }
-    // }
 
   return 1;
 }
@@ -276,6 +256,40 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     return;
     }
+  }
+
+void vtkPTIFWriter::ComputeExtentsFromTileName(std::string & tileName, int * ext)
+  {
+  // Compute the extents from the prefix
+  ext[0] = 0;
+  ext[2] = 0;
+
+  int step = this->TileSize;
+  std::string::reverse_iterator rit;
+
+  for ( rit=tileName.rbegin() ; rit < tileName.rend(); rit++ )
+    {
+    // Do the adjustments based on the incoming character
+    if(*rit == 'q')
+      {
+      ext[2] += step;
+      }
+    if(*rit == 'r')
+      {
+      ext[0] += step;
+      ext[2] += step;
+      }
+    if(*rit == 's')
+      {
+      ext[2] += step;
+      }
+    step = step * 2;
+    }
+
+  ext[1] = ext[0] + this->TileSize-1;
+  ext[3] = ext[2] + this->TileSize-1;
+  ext[4] = 0;
+  ext[5] = 0;
   }
 
 void ProcessTile(const std::string &current_tile)
