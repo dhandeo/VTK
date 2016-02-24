@@ -28,6 +28,7 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include <stack>
 #include <string>
+#include <iostream>
 
 
 #if _MSC_VER
@@ -258,16 +259,15 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     }
   }
 
-void vtkPTIFWriter::ComputeExtentsFromTileName(std::string & tileName, int * ext)
+void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int * ext)
   {
   // Compute the extents from the prefix
   ext[0] = 0;
   ext[2] = 0;
 
   int step = this->TileSize;
-  std::string::reverse_iterator rit;
 
-  for ( rit=tileName.rbegin() ; rit < tileName.rend(); rit++ )
+  for ( std::string::const_reverse_iterator rit=tileName.rbegin() ; rit < tileName.rend(); rit++ )
     {
     // Do the adjustments based on the incoming character
     if(*rit == 'q')

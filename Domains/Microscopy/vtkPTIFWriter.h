@@ -18,6 +18,7 @@
 
 #include "vtkDomainsMicroscopyModule.h" // For export macro
 #include "vtkImageWriter.h" // Image writer
+#include <string>
 
 extern "C" {
   #include "vtk_tiff.h" // tiff library
@@ -43,6 +44,7 @@ public:
   // Description:
   // The main interface which triggers the writer to start.
   virtual void Write();
+  void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
 
 protected:
   vtkPTIFWriter();
@@ -88,8 +90,7 @@ protected:
   void SelectDirectory(int dir);
   virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
   void ProcessTile(const std::string &current_tile);
-  void ComputeExtentsFromTileName(std::string & tileName, int * ext);
-
+  // void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.
