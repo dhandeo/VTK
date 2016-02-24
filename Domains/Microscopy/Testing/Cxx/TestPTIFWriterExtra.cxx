@@ -26,8 +26,23 @@ int TestPTIFWriterExtra(int argc, char** argv)
   int extents[6];
   writer->ComputeExtentsFromTileName(std::string("t"), extents);
   cout << "t: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
-  writer->ComputeExtentsFromTileName(std::string("ttq"), extents);
-  cout << "ttq: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("tq"), extents);
+  cout << "tq: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("tr"), extents);
+  cout << "tr: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("ts"), extents);
+  cout << "ts: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("tt"), extents);
+  cout << "tt: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("trq"), extents);
+  cout << "trq: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("trr"), extents);
+  cout << "trr: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("trs"), extents);
+  cout << "trs: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  writer->ComputeExtentsFromTileName(std::string("trt"), extents);
+  cout << "trt: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+
 
   return EXIT_SUCCESS;
 }

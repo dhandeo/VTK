@@ -99,7 +99,7 @@ void vtkPTIFWriter::Write()
   // vtkImageData *input = this->GetInput();
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
   // int dim[3];
-  // this->WriteFile(0,0,extent,0);
+  this->WriteFile(0,0,extent,0);
   // this->WriteTile(0, this->GetInput(), extent, 0);
   this->WriteFileTrailer(0, 0);
 }
@@ -300,7 +300,7 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
       }
     if(*rit == 's')
       {
-      ext[2] += step;
+      ext[0] += step;
       }
     step = step * 2;
     }
