@@ -18,6 +18,7 @@
 
 #include "vtkDomainsMicroscopyModule.h" // For export macro
 #include "vtkImageWriter.h" // Image writer
+#include "vtkImageData.h" // for returning tile data
 #include <string>
 
 extern "C" {
@@ -57,6 +58,12 @@ protected:
   int DataType;
   int NumScalars;
 
+  // Extents for combinling lower tiles into upper tile
+  int qExtent[6];
+  int rExtent[6];
+  int sExtent[6];
+  int tExtent[6];
+
   //
   int Compression;
   int Width;
@@ -89,7 +96,7 @@ protected:
 
   void SelectDirectory(int dir);
   virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
-  void ProcessTile(const std::string &current_tile);
+  vtkImageData * ProcessTile(const std::string &current_tile);
   // void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.

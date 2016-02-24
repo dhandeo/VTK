@@ -43,6 +43,12 @@ vtkPTIFWriter::vtkPTIFWriter()
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256)
 {
   this->SetPadding(255, 255, 255);
+
+  this->ComputeExtentsFromTileName("tq", this->qExtent);
+  this->ComputeExtentsFromTileName("tr", this->rExtent);
+  this->ComputeExtentsFromTileName("ts", this->sExtent);
+  this->ComputeExtentsFromTileName("tt", this->tExtent);
+
 }
 
 //----------------------------------------------------------------------------
@@ -292,8 +298,11 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
   ext[5] = 0;
   }
 
-void vtkPTIFWriter::ProcessTile(const std::string &current_tile)
+vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
+  int extents[6];
+  this->ComputeExtentsFromTileName(current_tile, extents);
+
   // If belongs to base image then get the images
   if(current_tile.length() >= 4)
     {
@@ -301,16 +310,28 @@ void vtkPTIFWriter::ProcessTile(const std::string &current_tile)
     int extents[6];
     // Compute extents
     this->WriteTile(0, 0, extents, 0); // Only extent is useful parameter
-    return;
+    return 0;
     }
 
   // Get parents
-  ProcessTile(current_tile + 'q');
-  ProcessTile(current_tile + 'r');
-  ProcessTile(current_tile + 's');
-  ProcessTile(current_tile + 't');
+  vtkImageData * q = ProcessTile(current_tile + 'q');
+  vtkImageData * r = ProcessTile(current_tile + 'r');
+  vtkImageData * s = ProcessTile(current_tile + 's');
+  vtkImageData * t = ProcessTile(current_tile + 't');
 
+  // Combine
+  vtkNew<vtkImageData> big;
+
+  q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, qExtent);
+  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, rExtent);
+  s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, sExtent);
+  t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, tExtent);
+
+  // Shrink
   cout << "PYRAMID: Processing " << current_tile << endl;
+  this->WriteTile(0, 0, extents, 0); // Only extent is useful parameter
+  // TODO:
+  return 0;
   }
 
 //----------------------------------------------------------------------------
