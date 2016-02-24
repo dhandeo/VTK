@@ -125,7 +125,7 @@ int vtkPTIFWriter::RequestInformation(
   inInfo->Get(vtkDataObject::ORIGIN(), origin);
   components = inInfo->Get(vtkDataObject::FIELD_NUMBER_OF_COMPONENTS());
   int hup = this->GetInput()->GetScalarType(inInfo);
-  cout << "DataType: " << hup << " Should be " << VTK_UNSIGNED_CHAR << endl;
+  // cout << "DataType: " << hup << " Should be " << VTK_UNSIGNED_CHAR << endl;
 
   this->DataType = dataType;
   this->NumScalars = components;
@@ -145,7 +145,7 @@ int vtkPTIFWriter::RequestUpdateExtent(
 {
   // Set the UpdateExtent from the DataUpdateExtent for the current slice
   int n = inputVector[0]->GetNumberOfInformationObjects();
-  cout << "RequestUpdateExtent: " << n << "Information  Objects" << endl;
+  // cout << "RequestUpdateExtent: " << n << "Information  Objects" << endl;
   vtkInformation *inInfo = inputVector[0]->GetInformationObject(0);
 
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(),
@@ -169,7 +169,7 @@ int vtkPTIFWriter::RequestData(
     int *extents;
     extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
     cout << "RequestData: " << extents[0] << ", " << extents[1] << endl;
-    cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
+    // cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
 
   return 1;
 }
@@ -390,8 +390,8 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   // Access the image data
   int ex[6];
   data->GetExtent(ex);
-  cout << "Data: " << ex[0] << ", " << ex[1] << endl;
-  cout << "Extent: " << extent[0] << ", " << extent[1] << endl;
+  cout << "Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
+  cout << "Extent: "  << extent[0]  << ", " << extent[1]  << ", " <<  extent[2] << ", " << extent[3]  << endl;
 
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
