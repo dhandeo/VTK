@@ -4,6 +4,7 @@ vtk_module(vtkDomainsMicroscopy
     vtkCommonDataModel
     vtkCommonExecutionModel
     vtkIOImage
+    vtkImagingCore
   PRIVATE_DEPENDS
     vtkIOXML
     vtkFiltersSources

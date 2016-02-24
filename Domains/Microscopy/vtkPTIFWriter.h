@@ -57,6 +57,8 @@ protected:
   int DataUpdateExtent[6];
   int DataType;
   int NumScalars;
+  int MaxLevel; // Depends on the max extent
+
 
   // Extents for combinling lower tiles into upper tile
   int qExtent[6];
@@ -94,8 +96,9 @@ protected:
   virtual void WriteFileTrailer(ofstream *, vtkImageData *);
 
 
+
   void SelectDirectory(int dir);
-  virtual void WriteTile(ofstream *, vtkImageData *data, int extent[6], int*);
+  void WriteTile(vtkImageData *data, int *extent, int level);
   vtkImageData * ProcessTile(const std::string &current_tile);
   // void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
 

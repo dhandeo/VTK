@@ -24,11 +24,12 @@
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
+#include "vtkImageShrink3D.h"
 
-#include "vtkStreamingDemandDrivenPipeline.h"
 #include <stack>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 
 #if _MSC_VER
@@ -39,7 +40,7 @@ vtkStandardNewMacro(vtkPTIFWriter);
 
 //----------------------------------------------------------------------------
 vtkPTIFWriter::vtkPTIFWriter()
-  : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0),
+  : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0), MaxLevel(0),
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256)
 {
   this->SetPadding(255, 255, 255);
@@ -98,7 +99,7 @@ void vtkPTIFWriter::Write()
   // vtkImageData *input = this->GetInput();
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
   // int dim[3];
-  this->WriteFile(0,0,extent,0);
+  // this->WriteFile(0,0,extent,0);
   // this->WriteTile(0, this->GetInput(), extent, 0);
   this->WriteFileTrailer(0, 0);
 }
@@ -217,6 +218,11 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
   // Find the width/height of the images
   this->Width = extent[1] - extent[0] + 1;
   this->Height = extent[3] - extent[2] + 1;
+
+  int max = std::max(this->Width, this->Height);
+  max /= this->TileSize;
+
+
   // Check if we need to write an image stack (pages > 2).
   this->Pages = extent[5] - extent[4] + 1;
 
@@ -303,13 +309,27 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   int extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
 
+  // Level to which to write the image
+  // Level 0 is full resolution and last level depends on the
+  int level = this->MaxLevel - current_tile.length();
+
   // If belongs to base image then get the images
-  if(current_tile.length() >= 4)
+  if(current_tile.length() >= 2)
     {
     cout << "PYRAMID: Got " << current_tile << endl;
-    int extents[6];
-    // Compute extents
-    this->WriteTile(0, 0, extents, 0); // Only extent is useful parameter
+    // Get data from input
+    cout << "NeedExtents: " << extents[0] << ", " << extents[1] << endl;
+    vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
+    exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+
+    // Update the data
+    // For debug, verification
+    // int *uExtent;
+    // uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
+    //   this->GetInputInformation(0, 0));
+    // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
+    this->Update();
+    this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
     return 0;
     }
 
@@ -328,15 +348,20 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, tExtent);
 
   // Shrink
-  cout << "PYRAMID: Processing " << current_tile << endl;
-  this->WriteTile(0, 0, extents, 0); // Only extent is useful parameter
-  // TODO:
-  return 0;
+  vtkNew<vtkImageShrink3D> shrinkFilter;
+  shrinkFilter->SetInputData(big.GetPointer());
+  shrinkFilter->SetShrinkFactors(2,2,1);
+  shrinkFilter->Update();
+
+  cout << "PYRAMID: Processed" << current_tile << endl;
+  // Write it out
+
+  this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
+  return shrinkFilter->GetOutput();
   }
 
 //----------------------------------------------------------------------------
-void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
-                              int extent[6], int*)
+void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], int wExt[6])
 {
   // TODO: Add the logic of calling write tile in a loop
   cout << "PYRAMID START" << endl;
@@ -360,7 +385,7 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
   //       // Get parents
   //       cout << "PYRAMID: Pushing parents of " << current_tile << endl;
   //       tile_stack.push(current_tile + 'q');
-  //       tile_stack.push(current_tile + 'r');
+  //       tile_stack.  vtkImageData *data = this->GetInput();
   //       tile_stack.push(current_tile + 's');
   //       tile_stack.push(current_tile + 't');
   //       }
@@ -398,24 +423,11 @@ void vtkPTIFWriter::WriteFile(ofstream *, vtkImageData *data,
 }
 
 
-void vtkPTIFWriter::WriteTile(ofstream * ignored_stream, vtkImageData *ignored_data,
-                              int extent[6], int* ignored_index)
+void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
 {
   // Set the requested extents
-  cout << "NeedExtents: " << extent[0] << ", " << extent[1] << endl;
-  vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
-  exec->SetUpdateExtent(this->GetInputInformation(0, 0), extent);
-
-  // Update the data
-  // For debug
-  // int *uExtent;
-  // uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
-  //   this->GetInputInformation(0, 0));
-  // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << endl;
-  this->Update();
 
   // Access the image data
-  vtkImageData *data = this->GetInput();
   int ex[6];
   data->GetExtent(ex);
   cout << "Data: " << ex[0] << ", " << ex[1] << endl;
