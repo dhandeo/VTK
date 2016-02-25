@@ -47,7 +47,7 @@ public:
   // The main interface which triggers the writer to start.
   virtual void Write();
   void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
-  int ComputeMaxLevel();
+  int internalComputeMaxLevel(int, int);
 
 protected:
   vtkPTIFWriter();
@@ -80,6 +80,7 @@ protected:
   unsigned char Padding[3];
   int JPEGQuality;
   int TileSize;
+  int ComputeMaxLevel();
 
   virtual int RequestInformation(vtkInformation *request,
                                  vtkInformationVector **inputVector,

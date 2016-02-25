@@ -15,6 +15,7 @@
 #include <vtkNew.h>
 #include <vtkPTIFWriter.h>
 #include <string>
+#include <assert.h>
 
 // VTK includes
 #include <vtkTestUtilities.h>
@@ -43,6 +44,17 @@ int TestPTIFWriterExtra(int argc, char** argv)
   writer->ComputeExtentsFromTileName(std::string("trt"), extents);
   cout << "trt: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
 
+  cout << endl;
+
+  assert(0 == writer->internalComputeMaxLevel(200,200));
+  assert(2 == writer->internalComputeMaxLevel(200,513));
+  assert(3 == writer->internalComputeMaxLevel(1025,513));
+  assert(3 == writer->internalComputeMaxLevel(2048,1024));
+
+  cout << "Total levels for 200,200: " << writer->internalComputeMaxLevel(200,200) + 1 << endl;
+  cout << "Total levels for 200,513: " << writer->internalComputeMaxLevel(200,513) + 1 << endl;
+  cout << "Total levels for 1025,513: " << writer->internalComputeMaxLevel(1025,513) + 1 << endl;
+  cout << "Total levels for 2048,1024: " << writer->internalComputeMaxLevel(2048,1024) + 1 << endl;
 
   return EXIT_SUCCESS;
 }

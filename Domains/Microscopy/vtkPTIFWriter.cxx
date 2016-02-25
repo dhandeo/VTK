@@ -31,7 +31,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
-
+#include <assert.h>
 
 #if _MSC_VER
 #define snprintf _snprintf
@@ -273,13 +273,23 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     }
   }
 
+int vtkPTIFWriter::internalComputeMaxLevel(int width, int height)
+  {
+  assert(width != 0);
+  assert(height != 0);
+
+  float ma = std::max(width, height);
+  // cout << endl << "  max:" << ma << endl;
+  ma /= this->TileSize;
+  // cout << "  ma:" << ma << endl;
+  // cout << "  log2:" << log2(ma) << endl;
+  return int(ceil(log2(ma)));
+  }
 
 int vtkPTIFWriter::ComputeMaxLevel()
   {
+  return this->internalComputeMaxLevel(this->Width, this->Height);
   // Compute max level from Width and Height
-  int max = std::max(this->Width, this->Height);
-  max /= this->TileSize;
-  return 1;
   }
 
 void debug_jpeg(std::string const tile, std::string prefix, vtkImageData* img)
