@@ -152,7 +152,7 @@ int vtkPTIFWriter::RequestUpdateExtent(
   inInfo->Set(vtkStreamingDemandDrivenPipeline::UPDATE_EXTENT(),
               this->DataUpdateExtent, 6);
 
-  cout << "RequestUpdateExtent: " << endl;
+  // cout << "RequestUpdateExtent: " << endl;
   this->Modified();
   return 1;
 }
@@ -172,7 +172,7 @@ int vtkPTIFWriter::RequestData(
 
     int *extents;
     extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
-    cout << "RequestData: " << extents[0] << ", " << extents[1] << ", " << extents[2] <<", " << extents[3] <<endl;
+    // cout << "RequestData: " << extents[0] << ", " << extents[1] << ", " << extents[2] <<", " << extents[3] <<endl;
     // cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
 
   return 1;
@@ -340,7 +340,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   {
   int extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
-  cout << "PYRAMID: Got " << current_tile << endl;
+  // cout << "PYRAMID: Got " << current_tile << endl;
 
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
@@ -351,7 +351,6 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     {
     cout << "PYRAMID: Input " << current_tile << endl;
     // Get data from input
-    cout << "NeedExtents: " << extents[0] << ", " << extents[1] << ", " << extents[2] << ", " << extents[3] << endl;
     this->DataUpdateExtent[0] = extents[0];
     this->DataUpdateExtent[1] = extents[1];
     this->DataUpdateExtent[2] = extents[2];
@@ -364,22 +363,8 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     this->Modified();
     this->Update();
 
-    // Update the data
-    // For debug, verification
-    // int *uExtent;
-    // uExtent = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(
-    //   this->GetInputInformation(0, 0));
-    // cout << "UpdateExtents" << uExtent[0] << ", " << uExtent[1] << ", " << uExtent[2] <<", " << uExtent[3] <<endl;
-
     // for debug
-    std::string fname(current_tile);
-    vtkNew<vtkJPEGWriter> vtkWr;
-    vtkWr->SetFileName(fname.append("_temp.jpg").c_str());
-    vtkWr->SetQuality(70);
-    vtkWr->ProgressiveOff();
-    vtkWr->SetInputData(this->GetInput());
-    vtkWr->Write();
-    cout << "Wrote" << current_tile << endl;
+    // cout << "Wrote" << current_tile << endl;
     this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
 
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
@@ -407,25 +392,12 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   // Pad
   void *ptr = big->GetScalarPointer();
   memset(ptr, this->Padding[0], 512*512*3);
-  // cout << "BeforeQ"  << endl;
-  // big->Print(cout);
-  debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
-  cout << "PYRAMID: Scalars allocated" << endl;
+  // debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
   q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
-  debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
-  // cout << "AftetrQ" << endl;
-  // big->Print(cout);
-
-  r->SetExtent(this->rExtent);
-  r->Print(cout);
-  big->CopyAndCastFrom(r, this->rExtent);
-  debug_jpeg(current_tile, std::string("_big_r.jpg"), big.GetPointer());
-
+  // debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
+  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
   s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
-  // debug_jpeg(current_tile, std::string("_big_s.jpg"), big.GetPointer());
-
   t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
-  // debug_jpeg(current_tile, std::string("_big_t.jpg"), big.GetPointer());
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
@@ -434,21 +406,12 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   shrinkFilter->Update();
 
   // Write it out
-  // for debug
-  std::string fname(current_tile);
-  vtkNew<vtkJPEGWriter> vtkWr;
-  vtkWr->SetFileName(fname.append("_after_shrink.jpg").c_str());
-  vtkWr->SetQuality(70);
-  vtkWr->ProgressiveOff();
-  vtkWr->SetInputData(shrinkFilter->GetOutput());
-  vtkWr->Write();
-
   this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
   cout << "PYRAMID: Processed: " << current_tile << endl;
 
   vtkSmartPointer<vtkImageData> ret=vtkImageData::New();
   ret->ShallowCopy(shrinkFilter->GetOutput());
-  cout << "PYRAMID: RETURN" << current_tile << endl;
+  // cout << "PYRAMID: RETURN" << current_tile << endl;
   // rt->Print(cout);
   return ret;
   }
@@ -466,15 +429,8 @@ void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], in
   cout << "PYRAMID START" << endl;
   // Recursively build pyramid
   vtkImageData *t = ProcessTile(std::string("t"));
-  cout << t << endl;
+  // cout << t << endl;
   // t->Print(cout);
-  cout << "PYRAMID END" << endl;
-  vtkNew<vtkJPEGWriter> vtkWr;
-  vtkWr->SetFileName("temp.jpg");
-  vtkWr->SetQuality(70);
-  vtkWr->ProgressiveOff();
-  vtkWr->SetInputData(t);
-  vtkWr->Write();
   cout << "PYRAMID END" << endl;
 }
 
@@ -486,8 +442,8 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   // Access the image data
   int ex[6];
   data->GetExtent(ex);
-  cout << "Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
-  cout << "Extent: "  << extent[0]  << ", " << extent[1]  << ", " <<  extent[2] << ", " << extent[3]  << endl;
+  cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
+  cout << "  Extent: "  << extent[0]  << ", " << extent[1]  << ", " <<  extent[2] << ", " << extent[3]  << endl;
 
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
