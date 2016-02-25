@@ -279,7 +279,18 @@ int vtkPTIFWriter::ComputeMaxLevel()
   // Compute max level from Width and Height
   int max = std::max(this->Width, this->Height);
   max /= this->TileSize;
-  return max;
+  return 1;
+  }
+
+void debug_jpeg(std::string const tile, std::string prefix, vtkImageData* img)
+  {
+    vtkNew<vtkJPEGWriter> vtkWr2;
+    std::string fname2(tile);
+    vtkWr2->SetFileName(fname2.append(prefix).c_str());
+    vtkWr2->SetQuality(70);
+    vtkWr2->ProgressiveOff();
+    vtkWr2->SetInputData(img);
+    vtkWr2->Write();
   }
 
 void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int * ext)
@@ -340,6 +351,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
     vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
     exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+    this->Modified();
     this->Update();
 
     // Update the data
@@ -371,14 +383,26 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   // Combine
   vtkNew<vtkImageData> big;
   big->SetDimensions(this->TileSize*2, this->TileSize*2, 1);
-  big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
   big->SetExtent(0,511,0,511,0,0);
+  big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
+  // Blackout
+  void *ptr = big->GetScalarPointer();
+  memset(ptr, 128, 512*512*3);
+
+  debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
   cout << "PYRAMID: Scalars allocated" << endl;
   q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
+  debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
+
   r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
+  debug_jpeg(current_tile, std::string("_big_r.jpg"), big.GetPointer());
+
   s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
+  debug_jpeg(current_tile, std::string("_big_s.jpg"), big.GetPointer());
+
   t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
+  debug_jpeg(current_tile, std::string("_big_t.jpg"), big.GetPointer());
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
