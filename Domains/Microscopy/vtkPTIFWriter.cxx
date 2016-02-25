@@ -371,7 +371,13 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     vtkWr->Write();
     cout << "Wrote" << current_tile << endl;
     this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
-    return this->GetInput();
+
+    vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
+    ret->SetDimensions(this->TileSize, this->TileSize, 1);
+    ret->SetExtent(extents);
+    ret->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+    ret->CopyAndCastFrom(this->GetInput(), extents);
+    return ret;
     }
 
   // Get parents
@@ -379,6 +385,8 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   vtkSmartPointer<vtkImageData> r = ProcessTile(current_tile + 'r');
   vtkSmartPointer<vtkImageData> s = ProcessTile(current_tile + 's');
   vtkSmartPointer<vtkImageData> t = ProcessTile(current_tile + 't');
+  // debug_jpeg(current_tile, std::string("_q_really.jpg"), q.GetPointer());
+  // debug_jpeg(current_tile, std::string("_t_really.jpg"), t.GetPointer());
 
   // Combine
   vtkNew<vtkImageData> big;
@@ -386,23 +394,28 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   big->SetExtent(0,511,0,511,0,0);
   big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
-  // Blackout
+  // Pad
   void *ptr = big->GetScalarPointer();
-  memset(ptr, 128, 512*512*3);
-
+  memset(ptr, this->Padding[0], 512*512*3);
+  // cout << "BeforeQ"  << endl;
+  // big->Print(cout);
   debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
   cout << "PYRAMID: Scalars allocated" << endl;
   q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
   debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
+  // cout << "AftetrQ" << endl;
+  // big->Print(cout);
 
-  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
+  r->SetExtent(this->rExtent);
+  r->Print(cout);
+  big->CopyAndCastFrom(r, this->rExtent);
   debug_jpeg(current_tile, std::string("_big_r.jpg"), big.GetPointer());
 
   s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
-  debug_jpeg(current_tile, std::string("_big_s.jpg"), big.GetPointer());
+  // debug_jpeg(current_tile, std::string("_big_s.jpg"), big.GetPointer());
 
   t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
-  debug_jpeg(current_tile, std::string("_big_t.jpg"), big.GetPointer());
+  // debug_jpeg(current_tile, std::string("_big_t.jpg"), big.GetPointer());
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
