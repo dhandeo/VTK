@@ -25,6 +25,7 @@
 #include "vtkInformationVector.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkImageShrink3D.h"
+#include "vtkSmartPointer.h"
 
 #include <stack>
 #include <string>
@@ -314,7 +315,7 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
   ext[5] = 0;
   }
 
-vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
+vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
   int extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
@@ -362,10 +363,10 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
     }
 
   // Get parents
-  vtkImageData * q = ProcessTile(current_tile + 'q');
-  vtkImageData * r = ProcessTile(current_tile + 'r');
-  vtkImageData * s = ProcessTile(current_tile + 's');
-  vtkImageData * t = ProcessTile(current_tile + 't');
+  vtkSmartPointer<vtkImageData> q = ProcessTile(current_tile + 'q');
+  vtkSmartPointer<vtkImageData> r = ProcessTile(current_tile + 'r');
+  vtkSmartPointer<vtkImageData> s = ProcessTile(current_tile + 's');
+  vtkSmartPointer<vtkImageData> t = ProcessTile(current_tile + 't');
 
   // Combine
   vtkNew<vtkImageData> big;
@@ -389,7 +390,7 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   // for debug
   std::string fname(current_tile);
   vtkNew<vtkJPEGWriter> vtkWr;
-  vtkWr->SetFileName(fname.append("_temp.jpg").c_str());
+  vtkWr->SetFileName(fname.append("_after_shrink.jpg").c_str());
   vtkWr->SetQuality(70);
   vtkWr->ProgressiveOff();
   vtkWr->SetInputData(shrinkFilter->GetOutput());
@@ -398,11 +399,11 @@ vtkImageData * vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
   cout << "PYRAMID: Processed: " << current_tile << endl;
 
-  vtkNew<vtkImageData> ret;
+  vtkSmartPointer<vtkImageData> ret=vtkImageData::New();
   ret->ShallowCopy(shrinkFilter->GetOutput());
   cout << "PYRAMID: RETURN" << current_tile << endl;
   // rt->Print(cout);
-  return shrinkFilter->GetOutput();
+  return ret;
   }
 
 //----------------------------------------------------------------------------
@@ -425,7 +426,7 @@ void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], in
   vtkWr->SetFileName("temp.jpg");
   vtkWr->SetQuality(70);
   vtkWr->ProgressiveOff();
-  vtkWr->SetInputData(data);
+  vtkWr->SetInputData(t);
   vtkWr->Write();
   cout << "PYRAMID END" << endl;
 }

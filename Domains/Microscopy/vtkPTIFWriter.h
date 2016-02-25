@@ -19,6 +19,7 @@
 #include "vtkDomainsMicroscopyModule.h" // For export macro
 #include "vtkImageWriter.h" // Image writer
 #include "vtkImageData.h" // for returning tile data
+#include "vtkSmartPointer.h" // For function returning a pointer to imagedata
 #include <string>
 
 extern "C" {
@@ -96,11 +97,9 @@ protected:
   virtual void WriteFileHeader(ofstream *, vtkImageData *, int wExt[6]);
   virtual void WriteFileTrailer(ofstream *, vtkImageData *);
 
-
-
   void SelectDirectory(int dir);
   void WriteTile(vtkImageData *data, int *extent, int level);
-  vtkImageData * ProcessTile(const std::string &current_tile);
+  vtkSmartPointer<vtkImageData> ProcessTile(const std::string &current_tile);
   // void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
