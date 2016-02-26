@@ -101,7 +101,6 @@ void vtkPTIFWriter::Write()
   // cout << "Dims: " << dim[0] << ", " << dim[1] << endl;
   // int dim[3];
   this->WriteFile(0,0,extent,0);
-  // this->WriteTile(0, this->GetInput(), extent, 0);
   this->WriteFileTrailer(0, 0);
 }
 
@@ -132,7 +131,7 @@ int vtkPTIFWriter::RequestInformation(
   this->NumScalars = components;
 
   for(int i=0; i < 6; i ++) this->DataUpdateExtent[i] = extent[i];
-  cout << "RequestInformation: " << extent[0] << ", " << extent[1] << endl;
+  // cout << "RequestInformation: " << extent[0] << ", " << extent[1] << endl;
 
   return 1;
 }
@@ -180,10 +179,19 @@ int vtkPTIFWriter::RequestData(
 
 void vtkPTIFWriter::SelectDirectory(int dir)
 {
+  cout << "SelectDIR current Dir: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
+  cout << "     Requested Dir: " << dir << endl;
 
-  if(this->CurDir != dir) {
-    TIFFSetDirectory(this->TIFFPtr, dir);
-  }
+  // if(this->CurDir != dir) {
+  // if(TIFFCurrentDirectory(this->TIFFPtr) == 65535)
+
+  // TIFFCheckpointDirectory(this->TIFFPtr);
+  assert(TIFFSetDirectory(this->TIFFPtr, dir) == 1);
+  this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
+  // }
+  // cout << "       Cur: " << this->CurDir << ", Req: " << dir << endl;
+  assert(this->CurDir == dir);
+  cout << "Selected .. " << endl;
 
 }
 
@@ -247,6 +255,8 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     return;
     }
   this->TIFFPtr = tif;
+  // TIFFWriteDirectory(this->TIFFPtr);
+  // TIFFSetDirectory(this->TIFFPtr, 0);
   this->InitPyramid();
 
   cout << "Done opening .." << endl;
@@ -331,7 +341,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
-  int level = this->MaxLevel - current_tile.length();
+  int level = this->MaxLevel - current_tile.length()+1;
 
   // If belongs to base image then get the images
   if(current_tile.length() >= this->MaxLevel + 1)
@@ -352,6 +362,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
     // for debug
     // cout << "Wrote" << current_tile << endl;
+    debug_jpeg(current_tile, std::string("_ready.jpg"), this->GetInput());
     this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
 
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
@@ -393,6 +404,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   shrinkFilter->Update();
 
   // Write it out
+  debug_jpeg(current_tile, std::string("_ready.jpg"), shrinkFilter->GetOutput());
   this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
   cout << "PYRAMID: Processed: " << current_tile << endl;
 
@@ -413,17 +425,18 @@ void vtkPTIFWriter::InitPyramid()
   int height = this->Height;
   TIFF *tif = this->TIFFPtr;
 
-  for (int level = 0; level < this->MaxLevel; level++)
+  for (int level = 0; level <= this->MaxLevel; level++)
     {
-    cout << "INIT Level: " << level << endl;
-    this->SelectDirectory(level);
+    cout << "INIT Level: " << level << ": " << width << ", " << height << endl;
+    cout << "Current Level" << TIFFCurrentDirectory(tif) << endl;
+    // this->SelectDirectory(level);
 
     // Set mostly default tif tags
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
     TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
     TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
-    // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+    TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTTOMLEFT);
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
@@ -432,7 +445,14 @@ void vtkPTIFWriter::InitPyramid()
     TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
     TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
 
+    // We are writing single page of the multipage file
+    TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
+    // Set the page number
+    TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
+
+    cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
     TIFFCheckpointDirectory(this->TIFFPtr);
+    TIFFWriteDirectory(this->TIFFPtr);
 
     // Get next image size
     width = this->TileSize * int((ceil(float(width) / (2 * this->TileSize))));
@@ -466,10 +486,17 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   // Set the requested extents
 
   // Access the image data
-  int ex[6];
-  data->GetExtent(ex);
-  cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
-  cout << "  Extent: "  << extent[0]  << ", " << extent[1]  << ", " <<  extent[2] << ", " << extent[3]  << endl;
+  // int ex[6];
+  // data->GetExtent(ex);
+  // cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
+  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " /*<< extent[1]  << ", " */ << extent[2] << /*", " << extent[3]  << */ endl;
+
+  TIFFCheckpointDirectory(this->TIFFPtr);
+  // TIFFWrDirectory(this->TIFFPtr);
+  TIFFSetDirectory(this->TIFFPtr, level);
+  this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
+
+
   this->SelectDirectory(level);
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
@@ -493,7 +520,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     }
 
   // Compute tile name
-  int tNum = TIFFComputeTile(this->TIFFPtr, ex[0], ex[2], 0, 0);
+  int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], extent[2], 0, 0);
   cout << "TNum: " << tNum << endl;
 
   // Write out the tile
@@ -503,6 +530,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     }
+
   TIFFCheckpointDirectory(this->TIFFPtr);
 }
 
