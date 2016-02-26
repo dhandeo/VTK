@@ -81,6 +81,7 @@ protected:
   int JPEGQuality;
   int TileSize;
   int ComputeMaxLevel();
+  void InitPyramid();
 
   virtual int RequestInformation(vtkInformation *request,
                                  vtkInformationVector **inputVector,

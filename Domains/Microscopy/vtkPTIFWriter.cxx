@@ -64,7 +64,7 @@ void vtkPTIFWriter::Write()
     }
   if (!this->FileName)
     {
-    vtkErrorMacro(<<"Write: Please specify an output FileName");
+    vtkErrorMacro(<<"Write: Please specify an output FileNamcurrent_tile.length()-1e");
     this->SetErrorCode(vtkErrorCode::NoFileNameError);
     return;
     }
@@ -247,22 +247,9 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     return;
     }
   this->TIFFPtr = tif;
+  this->InitPyramid();
 
   cout << "Done opening .." << endl;
-
-  // Set mostly default tif tags
-  TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, this->TileSize);
-  TIFFSetField(tif, TIFFTAG_IMAGELENGTH, this->TileSize);
-  TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
-  TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
-  // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-  TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
-  TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
-  TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
-  TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-  // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
-  TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
-  TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
 
   // Make sure that the
   if (tif == NULL)
@@ -417,6 +404,44 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   }
 
 //----------------------------------------------------------------------------
+void vtkPTIFWriter::InitPyramid()
+{
+  // Loops through all the levels after the Width and Height and tilesize have been set
+  // Expects tiff to be open and maxlevel to be computed
+
+  int width = this->Width;
+  int height = this->Height;
+  TIFF *tif = this->TIFFPtr;
+
+  for (int level = 0; level < this->MaxLevel; level++)
+    {
+    cout << "INIT Level: " << level << endl;
+    this->SelectDirectory(level);
+
+    // Set mostly default tif tags
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
+    TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
+    TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
+    // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
+    // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
+    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
+
+    TIFFCheckpointDirectory(this->TIFFPtr);
+
+    // Get next image size
+    width = this->TileSize * int((ceil(float(width) / (2 * this->TileSize))));
+    height = this->TileSize * int((ceil(float(height) / (2 * this->TileSize))));
+    }
+}
+
+
+//----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], int wExt[6])
 {
   if (this->TIFFPtr == NULL)
@@ -426,7 +451,8 @@ void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], in
     return;
     }
 
-  cout << "PYRAMID START" << endl;
+  cout << "PYRAMID INIT" << endl;
+
   // Recursively build pyramid
   vtkImageData *t = ProcessTile(std::string("t"));
   // cout << t << endl;
@@ -444,7 +470,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   data->GetExtent(ex);
   cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
   cout << "  Extent: "  << extent[0]  << ", " << extent[1]  << ", " <<  extent[2] << ", " << extent[3]  << endl;
-
+  this->SelectDirectory(level);
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
   // vtkWr->SetFileName("temp.jpg");
@@ -467,7 +493,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     }
 
   // Compute tile name
-  int tNum = TIFFComputeTile(this->TIFFPtr, 0, 0, 0, 0);
+  int tNum = TIFFComputeTile(this->TIFFPtr, ex[0], ex[2], 0, 0);
   cout << "TNum: " << tNum << endl;
 
   // Write out the tile
@@ -477,6 +503,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     }
+  TIFFCheckpointDirectory(this->TIFFPtr);
 }
 
 
