@@ -383,13 +383,15 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
   // Combine
   vtkNew<vtkImageData> big;
-  big->SetDimensions(this->TileSize*2, this->TileSize*2, 1);
-  big->SetExtent(0,511,0,511,0,0);
+  int bigdim = this->TileSize*2;
+
+  big->SetDimensions(bigdim, bigdim, 1);
+  big->SetExtent(0,bigdim-1,0,bigdim-1,0,0);
   big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
   // Pad
   void *ptr = big->GetScalarPointer();
-  memset(ptr, this->Padding[0], 512*512*3);
+  memset(ptr, this->Padding[0], bigdim*bigdim*3);
   // debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
   q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
   // debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
