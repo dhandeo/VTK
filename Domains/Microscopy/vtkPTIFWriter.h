@@ -104,7 +104,10 @@ protected:
   void SelectDirectory(int dir);
   void WriteTile(vtkImageData *data, int *extent, int level);
   vtkSmartPointer<vtkImageData> ProcessTile(const std::string &current_tile);
-  // void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
+
+  void TileDataCompressWithVTK(int num, vtkImageData *data);
+  void TileDataCompressWithJPEGLib(int num, vtkImageData *data);
+
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.

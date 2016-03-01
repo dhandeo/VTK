@@ -536,47 +536,50 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
   cout << "TNum: " << tNum << endl;
 
-  //valgrind says this needs to be set to ensure vtkW is OK below
-  //despite WriteToMemory. look at vtkJPEGWriter.cxx sprintf(this->InternalFileName,NULL,num)
-  // Write out the tile
-  // void *inPtr = data->GetScalarPointer();
-  // if (TIFFWriteEncodedTile(this->TIFFPtr, tNum, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
-  //   {
-  //   vtkErrorMacro(<< "Error writing tile");
-  //   this->SetErrorCode(vtkErrorCode::FileFormatError);
-  //   }
+  this->TileDataCompressWithVTK(tNum, data);
+  TIFFCheckpointDirectory(this->TIFFPtr);
+}
 
-  // Temporary memory used to hold compressed tile.
-  vtkUnsignedCharArray* jpgData;
-  vtkTypeUInt32 compressedTileSize;
-  // Writer used to compress the tile.
-  vtkSmartPointer<vtkJPEGWriter> vtkW = vtkSmartPointer<vtkJPEGWriter>::New();
-  vtkW->WriteToMemoryOn();
-  vtkW->SetFilePattern("Tile_%d");
-  vtkW->SetInputData(data);
-  vtkW->SetQuality(this->JPEGQuality);
-  vtkW->ProgressiveOff();
-  vtkW->Write();
-  jpgData = vtkW->GetResult();
-  compressedTileSize = jpgData->GetNumberOfTuples();
-
-  // Output debug image
-  // std::ofstream ofile("test.jpg", ios::out | ios::binary);
-  // ofile.write((const char *) jpgData->GetVoidPointer(0), compressedTileSize);
-
-  // Trim the jpegtables
-
-  cout << "Compressed TileSize: " << compressedTileSize << endl;
-  if (TIFFWriteRawTile(this->TIFFPtr, tNum, (unsigned char *) jpgData->GetVoidPointer(0), compressedTileSize) < 0)
+void vtkPTIFWriter::TileDataCompressWithJPEGLib(int num, vtkImageData *data)
+{
+  void *inPtr = data->GetScalarPointer();
+  if (TIFFWriteEncodedTile(this->TIFFPtr, num, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
     {
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
     }
-
-  TIFFCheckpointDirectory(this->TIFFPtr);
 }
 
+void vtkPTIFWriter::TileDataCompressWithVTK(int num, vtkImageData *data)
+{
+    // Temporary memory used to hold compressed tile.
+    vtkUnsignedCharArray* jpgData;
+    vtkTypeUInt32 compressedTileSize;
+    // Writer used to compress the tile.
+    vtkSmartPointer<vtkJPEGWriter> vtkW = vtkSmartPointer<vtkJPEGWriter>::New();
+    vtkW->WriteToMemoryOn();
+    vtkW->SetFilePattern("Tile_%d");
+    vtkW->SetInputData(data);
+    vtkW->SetQuality(this->JPEGQuality);
+    vtkW->ProgressiveOff();
+    vtkW->Write();
+    jpgData = vtkW->GetResult();
+    compressedTileSize = jpgData->GetNumberOfTuples();
 
+    // Output debug image
+    // std::ofstream ofile("test.jpg", ios::out | ios::binary);
+    // ofile.write((const char *) jpgData->GetVoidPointer(0), compressedTileSize);
+
+    // Trim the jpegtables
+
+    cout << "Compressed TileSize: " << compressedTileSize << endl;
+    if (TIFFWriteRawTile(this->TIFFPtr, num, (unsigned char *) jpgData->GetVoidPointer(0), compressedTileSize) < 0)
+      {
+      vtkErrorMacro(<< "Error writing tile");
+      this->SetErrorCode(vtkErrorCode::FileFormatError);
+      }
+
+}
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFileTrailer(ofstream *, vtkImageData *)
 {
