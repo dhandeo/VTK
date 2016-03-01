@@ -43,7 +43,8 @@ vtkStandardNewMacro(vtkPTIFWriter);
 //----------------------------------------------------------------------------
 vtkPTIFWriter::vtkPTIFWriter()
   : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0), MaxLevel(0),
-    XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256)
+    XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256),
+    CompressionMode(COMPRESS_WITH_VTK)
 {
   this->SetPadding(255, 255, 255);
 
@@ -536,7 +537,14 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
   cout << "TNum: " << tNum << endl;
 
-  this->TileDataCompressWithVTK(tNum, data);
+  if(this->CompressionMode == COMPRESS_WITH_VTK)
+    {
+    this->TileDataCompressWithVTK(tNum, data);
+    }
+  else
+    {
+    this->TileDataCompressWithJPEGLib(tNum, data);
+    }
   TIFFCheckpointDirectory(this->TIFFPtr);
 }
 

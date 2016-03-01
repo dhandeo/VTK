@@ -26,6 +26,12 @@ extern "C" {
   #include "vtk_tiff.h" // tiff library
 }
 
+enum COMPRESSION_MODE
+  {
+  COMPRESS_WITH_VTK,
+  COMPRESS_WITH_JPEGLIB
+  };
+
 class VTKDOMAINSMICROSCOPY_EXPORT vtkPTIFWriter : public vtkImageWriter
 {
 public:
@@ -60,6 +66,7 @@ protected:
   int DataType;
   int NumScalars;
   int MaxLevel; // Depends on the max extent
+  unsigned char CompressionMode;
 
 
   // Extents for combinling lower tiles into upper tile

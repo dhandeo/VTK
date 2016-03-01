@@ -15,7 +15,6 @@
 #include <vtkNew.h>
 #include <vtkOpenSlideReader.h>
 #include <vtkPTIFWriter.h>
-
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
