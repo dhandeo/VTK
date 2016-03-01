@@ -26,6 +26,7 @@
 #include "vtkStreamingDemandDrivenPipeline.h"
 #include "vtkImageShrink3D.h"
 #include "vtkSmartPointer.h"
+#include "vtkUnsignedCharArray.h"
 
 #include <stack>
 #include <string>
@@ -439,24 +440,28 @@ void vtkPTIFWriter::InitPyramid()
     // this->SelectDirectory(level);
 
     // Set mostly default tif tags
+    // We are writing single page of the multipage file
+    TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
+    // Set the page number
+    TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
+
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
     TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
     TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
 
     // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
+
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
-    TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-    // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
-    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
-    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
 
-    // We are writing single page of the multipage file
-    TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
-    // Set the page number
-    TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
+    // TIFFSetField(tif, TIFFTAG_JPEGTABLESMODE, 0); // Always same for JPEG
+    TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, 6); // Always same for JPEG
+
+    // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
+    // TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
 
     cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
     TIFFCheckpointDirectory(this->TIFFPtr);
@@ -531,9 +536,38 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
   cout << "TNum: " << tNum << endl;
 
+  //valgrind says this needs to be set to ensure vtkW is OK below
+  //despite WriteToMemory. look at vtkJPEGWriter.cxx sprintf(this->InternalFileName,NULL,num)
   // Write out the tile
-  void *inPtr = data->GetScalarPointer();
-  if (TIFFWriteEncodedTile(this->TIFFPtr, tNum, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
+  // void *inPtr = data->GetScalarPointer();
+  // if (TIFFWriteEncodedTile(this->TIFFPtr, tNum, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
+  //   {
+  //   vtkErrorMacro(<< "Error writing tile");
+  //   this->SetErrorCode(vtkErrorCode::FileFormatError);
+  //   }
+
+  // Temporary memory used to hold compressed tile.
+  vtkUnsignedCharArray* jpgData;
+  vtkTypeUInt32 compressedTileSize;
+  // Writer used to compress the tile.
+  vtkSmartPointer<vtkJPEGWriter> vtkW = vtkSmartPointer<vtkJPEGWriter>::New();
+  vtkW->WriteToMemoryOn();
+  vtkW->SetFilePattern("Tile_%d");
+  vtkW->SetInputData(data);
+  vtkW->SetQuality(this->JPEGQuality);
+  vtkW->ProgressiveOff();
+  vtkW->Write();
+  jpgData = vtkW->GetResult();
+  compressedTileSize = jpgData->GetNumberOfTuples();
+
+  // Output debug image
+  // std::ofstream ofile("test.jpg", ios::out | ios::binary);
+  // ofile.write((const char *) jpgData->GetVoidPointer(0), compressedTileSize);
+
+  // Trim the jpegtables
+
+  cout << "Compressed TileSize: " << compressedTileSize << endl;
+  if (TIFFWriteRawTile(this->TIFFPtr, tNum, (unsigned char *) jpgData->GetVoidPointer(0), compressedTileSize) < 0)
     {
     vtkErrorMacro(<< "Error writing tile");
     this->SetErrorCode(vtkErrorCode::FileFormatError);
