@@ -21,7 +21,7 @@
 #include "vtkImageData.h" // for returning tile data
 #include "vtkSmartPointer.h" // For function returning a pointer to imagedata
 #include <string>
-
+#include <vector>
 extern "C" {
   #include "vtk_tiff.h" // tiff library
 }
@@ -67,6 +67,8 @@ protected:
   int rExtent[6];
   int sExtent[6];
   int tExtent[6];
+
+  std::vector<int> heights;
 
   //
   int Compression;

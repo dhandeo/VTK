@@ -336,6 +336,7 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
 vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
   int extents[6];
+  int height;
   this->ComputeExtentsFromTileName(current_tile, extents);
   // cout << "PYRAMID: Got " << current_tile << endl;
 
@@ -427,9 +428,13 @@ void vtkPTIFWriter::InitPyramid()
   int height = this->Height;
   TIFF *tif = this->TIFFPtr;
 
+  this->heights.reserve(this->MaxLevel + 1);
+
   for (int level = 0; level <= this->MaxLevel; level++)
     {
     cout << "INIT Level: " << level << ": " << width << ", " << height << endl;
+    this->heights[level] = height;
+
     cout << "Current Level" << TIFFCurrentDirectory(tif) << endl;
     // this->SelectDirectory(level);
 
@@ -438,7 +443,8 @@ void vtkPTIFWriter::InitPyramid()
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
     TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
     TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
-    TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTTOMLEFT);
+
+    // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
     TIFFSetField(tif, TIFFTAG_PLANARCONFIG, 1);
@@ -522,7 +528,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     }
 
   // Compute tile name
-  int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], extent[2], 0, 0);
+  int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
   cout << "TNum: " << tNum << endl;
 
   // Write out the tile
