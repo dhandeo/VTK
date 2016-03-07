@@ -99,7 +99,8 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
 
   if(openslide_get_error(this->openslide_handle) != NULL)
     {
-    delete[] buffer;
+    // Buffer is deleted by the openslide in case the error occurs
+    // delete[] buffer;
     vtkErrorWithObjectMacro(this,
                             "File could not be read by openslide"
                            );
@@ -124,7 +125,7 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
     }
 
   delete[] buffer;
-  openslide_close(this->openslide_handle);
+  // openslide_close(this->openslide_handle);
 }
 
 
@@ -145,10 +146,19 @@ int vtkOpenSlideReader::CanReadFile(const char* fname)
   else
   {
     // Pretty sure
+    openslide_close(this->openslide_handle);
     return 2;
   }
 }
 
+vtkOpenSlideReader::~vtkOpenSlideReader()
+  {
+  // Release openslide_handle if being used
+  if(this->openslide_handle != NULL)
+    {
+    openslide_close(this->openslide_handle);
+    }
+  }
 
 //----------------------------------------------------------------------------
 void vtkOpenSlideReader::PrintSelf(ostream& os, vtkIndent indent)
