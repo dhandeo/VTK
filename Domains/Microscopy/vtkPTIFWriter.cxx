@@ -44,7 +44,7 @@ vtkStandardNewMacro(vtkPTIFWriter);
 vtkPTIFWriter::vtkPTIFWriter()
   : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0), MaxLevel(0),
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256),
-    CompressionMode(COMPRESS_WITH_VTK)
+    CompressionMode(COMPRESS_WITH_JPEGLIB)
 {
   this->SetPadding(255, 255, 255);
 
@@ -181,20 +181,20 @@ int vtkPTIFWriter::RequestData(
 
 void vtkPTIFWriter::SelectDirectory(int dir)
 {
-  cout << "SelectDIR current Dir: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
-  cout << "     Requested Dir: " << dir << endl;
-
-  // if(this->CurDir != dir) {
-  // if(TIFFCurrentDirectory(this->TIFFPtr) == 65535)
-
-  // TIFFCheckpointDirectory(this->TIFFPtr);
-  assert(TIFFSetDirectory(this->TIFFPtr, dir) == 1);
-  this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
-  // }
-  // cout << "       Cur: " << this->CurDir << ", Req: " << dir << endl;
-  assert(this->CurDir == dir);
-  cout << "Selected .. " << endl;
-
+  // cout << "SelectDIR current Dir: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
+  // cout << "     Requested Dir: " << dir << endl;
+  //
+  // // if(this->CurDir != dir) {
+  // // if(TIFFCurrentDirectory(this->TIFFPtr) == 65535)
+  //
+  // // TIFFCheckpointDirectory(this->TIFFPtr);
+  // assert(TIFFSetDirectory(this->TIFFPtr, dir) == 1);
+  // this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
+  // // }
+  // // cout << "       Cur: " << this->CurDir << ", Req: " << dir << endl;
+  // assert(this->CurDir == dir);
+  // cout << "Selected .. " << endl;
+  //
 }
 
 //----------------------------------------------------------------------------
@@ -444,7 +444,7 @@ void vtkPTIFWriter::InitPyramid()
     // We are writing single page of the multipage file
     TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
     // Set the page number
-    TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
+    // TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
 
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
@@ -459,10 +459,9 @@ void vtkPTIFWriter::InitPyramid()
 
     // TIFFSetField(tif, TIFFTAG_JPEGTABLESMODE, 0); // Always same for JPEG
     TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, 6); // Always same for JPEG
-
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
+    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
     // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
-    // TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
 
     cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
     TIFFCheckpointDirectory(this->TIFFPtr);
@@ -503,15 +502,14 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   // int ex[6];
   // data->GetExtent(ex);
   // cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
-  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " /*<< extent[1]  << ", " */ << extent[2] << /*", " << extent[3]  << */ endl;
 
   TIFFCheckpointDirectory(this->TIFFPtr);
-  // TIFFWrDirectory(this->TIFFPtr);
+  // TIFFWriteDirectory(this->TIFFPtr);
   TIFFSetDirectory(this->TIFFPtr, level);
-  this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
+  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " /*<< extent[1]  << ", " */ << extent[2] << /*", " << extent[3]  << */ endl;
+  cout << "Writing to: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
 
-
-  this->SelectDirectory(level);
+  // this->SelectDirectory(level);
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
   // vtkWr->SetFileName("temp.jpg");
@@ -535,7 +533,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
 
   // Compute tile name
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
-  cout << "TNum: " << tNum << endl;
+  // cout << "TNum: " << tNum << endl;
 
   if(this->CompressionMode == COMPRESS_WITH_VTK)
     {
@@ -545,7 +543,8 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     {
     this->TileDataCompressWithJPEGLib(tNum, data);
     }
-  TIFFCheckpointDirectory(this->TIFFPtr);
+  // TIFFCheckpointDirectory(this->TIFFPtr);
+  // TIFFWriteDirectory(this->TIFFPtr);
 }
 
 void vtkPTIFWriter::TileDataCompressWithJPEGLib(int num, vtkImageData *data)

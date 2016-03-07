@@ -28,7 +28,7 @@
 #include <sstream>
 
 // Main program
-int TestOpenSlideReader(int argc, char** argv)
+int TestOpenSlideReaderPartial(int argc, char** argv)
 {
   const char* rasterFileName = vtkTestUtilities::ExpandDataFileName(argc, argv,
                                  "Data/Microscopy/small2.ndpi");
@@ -43,41 +43,56 @@ int TestOpenSlideReader(int argc, char** argv)
   delete [] rasterFileName;
 
   int extent[6] = {20,120,20,120,0,0};
-  int extent2[6] = {0,120,0,120,0,0};
-
   reader->SetUpdateExtent(extent);
   reader->Update();
   reader->Print(cout);
 
+  vtkNew<vtkImageData> data;
+  data->ShallowCopy(reader->GetOutput());
+
+  vtkNew<vtkPNGWriter> writer;
+  writer->SetInputData(data.GetPointer());
+  writer->SetFileName("this.png");
+  writer->SetUpdateExtent(extent);
+  writer->Update();
+  writer->Write();
+
+  int extent2[6] = {200,499,200,499,0,0};
+
   reader->SetUpdateExtent(extent2);
-  reader->Print(cout);
   reader->Update();
+  reader->Print(cout);
 
-  // vtkNew<vtkPNGWriter> writer;
-  // writer->SetInputConnection(reader->GetOutputPort());
-  // writer->SetFileName("this.png");
-  // writer->SetUpdateExtent(extent);
-  // writer->Update();
-  // writer->Write();
+  data->ShallowCopy(reader->GetOutput());
 
-  // Visualize
-  vtkNew<vtkRenderer> renderer;
-  vtkNew<vtkRenderWindow> window;
-  window->AddRenderer(renderer.GetPointer());
+  vtkNew<vtkPNGWriter> write;
+  write->SetInputData(data.GetPointer());
+  write->SetFileName("this2.png");
+  write->SetUpdateExtent(extent);
+  write->Update();
+  write->Write();
 
-  vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
-  renderWindowInteractor->SetRenderWindow(window.GetPointer());
 
-  vtkNew<vtkImageViewer2> imageViewer;
-  imageViewer->SetInputConnection(reader->GetOutputPort());
-  //imageViewer->SetExtent(1000,1500,1000,1500,0,0);
-  imageViewer->SetupInteractor(renderWindowInteractor.GetPointer());
-  //imageViewer->SetSlice(0);
-  imageViewer->Render();
-  imageViewer->GetRenderer()->ResetCamera();
-  renderWindowInteractor->Initialize();
-  imageViewer->Render();
-  renderWindowInteractor->Start();
+
+
+  // // Visualize
+  // vtkNew<vtkRenderer> renderer;
+  // vtkNew<vtkRenderWindow> window;
+  // window->AddRenderer(renderer.GetPointer());
+  //
+  // vtkNew<vtkRenderWindowInteractor> renderWindowInteractor;
+  // renderWindowInteractor->SetRenderWindow(window.GetPointer());
+  //
+  // vtkNew<vtkImageViewer2> imageViewer;
+  // imageViewer->SetInputConnection(reader->GetOutputPort());
+  // //imageViewer->SetExtent(1000,1500,1000,1500,0,0);
+  // imageViewer->SetupInteractor(renderWindowInteractor.GetPointer());
+  // //imageViewer->SetSlice(0);
+  // imageViewer->Render();
+  // imageViewer->GetRenderer()->ResetCamera();
+  // renderWindowInteractor->Initialize();
+  // imageViewer->Render();
+  // renderWindowInteractor->Start();
 
   return EXIT_SUCCESS;
 }

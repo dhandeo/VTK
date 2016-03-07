@@ -11,9 +11,9 @@ vtk_add_test_cxx(${vtk-module}CxxTests  tests
   "DATA{${VTK_TEST_INPUT_DIR}/Microscopy/small2.ndpi}"
   )
 
+# PTIFWriter tests
 vtk_add_test_cxx(${vtk-module}CxxTests tests
-    TestPTIFWriter.cxx
-    "DATA{${VTK_TEST_INPUT_DIR}/Microscopy/small2.ndpi}"
+    TestPTIFWriter.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   )
 
   vtk_add_test_cxx(${vtk-module}CxxTests tests
