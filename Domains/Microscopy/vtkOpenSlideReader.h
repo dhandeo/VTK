@@ -40,7 +40,7 @@ public:
   virtual void PrintSelf(ostream& os, vtkIndent indent);
 
   // Description:
-  // Is the given file supported ?."
+  // Is the given file supported ?
   int CanReadFile(const char* fname);
 
   // Description:

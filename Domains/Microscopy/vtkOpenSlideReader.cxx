@@ -67,33 +67,33 @@ void vtkOpenSlideReader::ExecuteDataWithInformation(vtkDataObject *output,
       outInfo,
       inExtent);
 
-  cout << "OpenSlideReaderDataInf: " << inExtent[0] << ", " << inExtent[1] << ", " << inExtent[2] << ", " << inExtent[3] << endl;
+  // cout << "OpenSlideReaderDataInf: " << inExtent[0] << ", " << inExtent[1] << ", " << inExtent[2] << ", " << inExtent[3] << endl;
 
   vtkImageData *data = this->AllocateOutputData(output, outInfo);
   //data->GetExtent(this->OutputExtent);
   //data->GetIncrements(this->OutputIncrements);
-
-
-    cout << "OpenSlideReaderDataInf: " << inExtent[0] << ", " << inExtent[1] << ", " << inExtent[2] << ", " << inExtent[3] << endl;
-
 
   if(this->openslide_handle == NULL)
     {
     std::cout << "In the data info update, file is not updated" << std::endl;
     }
 
-  // std::cout << "Extents: " << data->GetExtent() << std::endl;
+  //std::cout << "Extents: " << data->GetExtent() << std::endl;
 
   this->ComputeDataIncrements();
 
   data->GetPointData()->GetScalars()->SetName("OpenSlideImage");
   //// Leverage openslide to read the region
 
+  // int inExtent[6];
+  // data->GetExtent(inExtent);
+  // cout << inExtent[0] << ", " << inExtent[1] << endl;
+  // cout << inExtent[2] << ", " << inExtent[3] << endl;
+
   int w = inExtent[1] - inExtent[0] + 1;
   int h = inExtent[3]- inExtent[2] + 1;
   unsigned char * buffer = new unsigned char[w * h * 4];
 
-  cout << "Pixels: " << w*h << endl;
   openslide_read_region(this->openslide_handle, (unsigned int *) buffer,
     inExtent[0],
     inExtent[2],
@@ -151,7 +151,11 @@ int vtkOpenSlideReader::CanReadFile(const char* fname)
   else
   {
     // Pretty sure
-    openslide_close(this->openslide_handle);
+    if(this->openslide_handle != NULL)
+      {
+      openslide_close(this->openslide_handle);
+      this->openslide_handle = NULL;
+      }
     return 2;
   }
 }
