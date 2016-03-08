@@ -44,7 +44,7 @@ vtkStandardNewMacro(vtkPTIFWriter);
 vtkPTIFWriter::vtkPTIFWriter()
   : TIFFPtr(NULL), Width(0), Height(0), Pages(0), CurDir(0), MaxLevel(0),
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256),
-    CompressionMode(COMPRESS_WITH_JPEGLIB)
+    CompressionMode(COMPRESS_WITH_VTK)
 {
   this->SetPadding(255, 255, 255);
 
@@ -459,8 +459,8 @@ void vtkPTIFWriter::InitPyramid()
 
     // TIFFSetField(tif, TIFFTAG_JPEGTABLESMODE, 0); // Always same for JPEG
     TIFFSetField(tif, TIFFTAG_COMPRESSION, 7); // COMPRESSION_JPEG
-    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB); // Always same for JPEG
-    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RAW);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_YCBCR); // Always same for JPEG
+    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
     // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
 
     cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
