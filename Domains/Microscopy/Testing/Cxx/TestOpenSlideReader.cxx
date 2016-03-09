@@ -41,15 +41,14 @@ int TestOpenSlideReader(int argc, char** argv)
   reader->UpdateInformation();
   delete [] rasterFileName;
 
-  int extent[6] = {20,120,20,120,0,0};
-
-  reader->SetUpdateExtent(extent);
-  vtkNew<vtkPNGWriter> writer;
-  writer->SetInputConnection(reader->GetOutputPort());
-  writer->SetFileName("this.png");
-  writer->SetUpdateExtent(extent);
-  writer->Update();
-  writer->Write();
+  // For debug
+  // reader->SetUpdateExtent(extent);
+  // vtkNew<vtkPNGWriter> writer;
+  // writer->SetInputConnection(reader->GetOutputPort());
+  // writer->SetFileName("this.png");
+  // writer->SetUpdateExtent(extent);
+  // writer->Update();
+  // writer->Write();
 
   // Visualize
   vtkNew<vtkRenderer> renderer;

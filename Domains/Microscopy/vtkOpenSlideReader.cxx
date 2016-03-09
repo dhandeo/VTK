@@ -146,7 +146,6 @@ int vtkOpenSlideReader::CanReadFile(const char* fname)
   if(this->openslide_handle == NULL || openslide_get_error(this->openslide_handle) != NULL)
     {
     // Unable to open
-    cout << "Returning zero" << endl;
     return 0;
     }
   else
@@ -157,7 +156,6 @@ int vtkOpenSlideReader::CanReadFile(const char* fname)
       openslide_close(this->openslide_handle);
       this->openslide_handle = NULL;
       }
-    cout << "Returning two" << endl;
     return 2;
   }
 }
