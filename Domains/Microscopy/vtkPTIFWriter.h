@@ -115,6 +115,8 @@ protected:
   void TileDataCompressWithVTK(int num, vtkImageData *data);
   void TileDataCompressWithJPEGLib(int num, vtkImageData *data);
 
+  int IsFullTileWithinImage(int *extents, int *valid_extents);
+
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.
