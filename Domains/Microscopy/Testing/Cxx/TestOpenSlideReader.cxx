@@ -41,8 +41,6 @@ int TestOpenSlideReader(int argc, char** argv)
   reader->UpdateInformation();
   delete [] rasterFileName;
 
-  int extent[6] = {20,120,20,120,0,0};
-
   // For debug
   // reader->SetUpdateExtent(extent);
   // vtkNew<vtkPNGWriter> writer;
