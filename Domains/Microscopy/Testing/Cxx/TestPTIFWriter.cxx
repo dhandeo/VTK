@@ -43,7 +43,9 @@ int TestPTIFWriter(int argc, char** argv)
   // // Create reader to read shape file.
   // vtkNew<vtkOpenSlideReader> reader;
 
-  const char* rasterFileName = "/home/dhan/Downloads/castlerect.jpg";
+  const char* rasterFileName = "/home/dhan/Downloads/marriage.jpg";
+  // const char* rasterFileName = "/home/dhan/Downloads/castlerect.jpg";
+  // const char* rasterFileName = "/home/dhan/Downloads/castle2.jpg";
   std::cout << "Got Filename: " << rasterFileName << std::endl;
 
   // Create reader to read shape file.

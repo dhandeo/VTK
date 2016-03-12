@@ -53,6 +53,21 @@ vtkPTIFWriter::vtkPTIFWriter()
   this->ComputeExtentsFromTileName("ts", this->sExtent);
   this->ComputeExtentsFromTileName("tt", this->tExtent);
 
+  // Initialize white tile
+  this->white_tile = vtkImageData::New();
+  this->white_tile->SetExtent(0,this->TileSize-1,0, this->TileSize-1, 0,0);
+  this->white_tile->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+
+  for(int j=0; j<this->TileSize; j++)
+    {
+    for(int k=0; k<this->TileSize; k++)
+      {
+        for(int m =0; m < this->white_tile->GetNumberOfScalarComponents(); m++)
+        {
+        white_tile->SetScalarComponentFromDouble(j,k,0,m, 255.);
+        }
+      }
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -335,11 +350,56 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
   ext[5] = 0;
   }
 
-int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents)
+int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int width, int height)
   {
   // Returns true if the request extents are within whole extents of the image, false otherwise
   // valid_extents returned reflect the imagedata that is within whole_extents of the image
-  return 1;
+  // If the image is not partial and in the image then the valid_extents are ignored
+
+  // assumes that extents[0] < extents[1]
+
+  int partial = WITHIN;
+
+  assert(extents[0] >= 0);
+  assert(extents[2] >= 0);
+
+  if(extents[0] >= width || extents[2] >= height)
+    {
+    // cout << "OUTSIDE" << endl;
+    return OUTSIDE; // Dont bother updating valid extents
+    }
+
+  // highest extent allowed is width-1
+  if(extents[1] >= width)
+    {
+    valid_extents[1] = width - 1;
+    valid_extents[3] = extents[3];
+    partial = PARTIAL;
+    // cout << "XPARTIAL" << endl;
+    }
+
+  // repeat same for height
+  if(extents[3] >= height)
+    {
+    valid_extents[3] = height - 1;
+    // If x is already partial then valid_extents[1] is already clamped
+    if(partial != PARTIAL)
+      {
+      valid_extents[1] = extents[1];
+      partial = PARTIAL;
+      }
+    }
+
+  if(partial != WITHIN)
+    {
+    // Make sure valid_extents are filled
+    valid_extents[0] = extents[0];
+    valid_extents[2] = extents[2];
+    valid_extents[4] = extents[4];
+    valid_extents[5] = extents[5];
+    }
+
+  return partial;
   }
 
 vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
@@ -361,33 +421,70 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
     //TODO: DJ find out what extents are availabel in file
 
-    int partial=0;
+
     int valid_extents[6];
 
-    partial = this->IsFullTileWithinImage(extents, valid_extents);
+    int tile_status = this->IsFullTileWithinImage(extents, valid_extents);
 
-    this->DataUpdateExtent[0] = extents[0];
-    this->DataUpdateExtent[1] = extents[1];
-    this->DataUpdateExtent[2] = extents[2];
-    this->DataUpdateExtent[3] = extents[3];
-    this->DataUpdateExtent[4] = extents[4];
-    this->DataUpdateExtent[5] = extents[5];
+    cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
+
+    if(tile_status == OUTSIDE)
+      {
+      cout << "  OUTSIDE" << endl;
+      // No need to write tile
+      return this-> white_tile;
+      }
 
     vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
-    exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+
+    if (tile_status == PARTIAL)
+      {
+      cout << "  PARTIAL" << endl;
+      this->DataUpdateExtent[0] = valid_extents[0];
+      this->DataUpdateExtent[1] = valid_extents[1];
+      this->DataUpdateExtent[2] = valid_extents[2];
+      this->DataUpdateExtent[3] = valid_extents[3];
+      this->DataUpdateExtent[4] = valid_extents[4];
+      this->DataUpdateExtent[5] = valid_extents[5];
+      exec->SetUpdateExtent(this->GetInputInformation(0, 0), valid_extents);
+      }
+    else
+      {
+      cout << "  WITHIN" << endl;
+      this->DataUpdateExtent[0] = extents[0];
+      this->DataUpdateExtent[1] = extents[1];
+      this->DataUpdateExtent[2] = extents[2];
+      this->DataUpdateExtent[3] = extents[3];
+      this->DataUpdateExtent[4] = extents[4];
+      this->DataUpdateExtent[5] = extents[5];
+      exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+      }
+
     this->Modified();
     this->Update();
 
     // for debug
     // cout << "Wrote" << current_tile << endl;
-    debug_jpeg(current_tile, std::string("_ready.jpg"), this->GetInput());
-    this->WriteTile(this->GetInput(), extents, level); // Only extent is useful parameter
 
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
-    ret->SetDimensions(this->TileSize, this->TileSize, 1);
-    ret->SetExtent(extents);
-    ret->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
-    ret->CopyAndCastFrom(this->GetInput(), extents);
+    ret->DeepCopy(this->white_tile);
+    cout << "  SHALLOWCOPIED" << endl;
+    if(tile_status == PARTIAL)
+      {
+      ret->SetExtent(extents);
+      ret->CopyAndCastFrom(this->GetInput(), valid_extents);
+      ret->SetExtent(extents);
+      }
+    else
+      {
+      ret->SetExtent(extents);
+      ret->CopyAndCastFrom(this->GetInput(), extents);
+      // ret->Print(cout);
+      }
+
+    // ret->SetExtent(extents);
+    this->WriteTile(ret, extents, level); // Only extent is useful parameter
+    debug_jpeg(current_tile, std::string("_ready.jpg"), ret);
     return ret;
     }
 
@@ -416,6 +513,8 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
   s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
   t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
+
+  cout << "PYRAMID: Processing: " << current_tile << endl;
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
@@ -521,8 +620,8 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   TIFFCheckpointDirectory(this->TIFFPtr);
   // TIFFWriteDirectory(this->TIFFPtr);
   TIFFSetDirectory(this->TIFFPtr, level);
-  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " /*<< extent[1]  << ", " */ << extent[2] << /*", " << extent[3]  << */ endl;
-  cout << "Writing to: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
+  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " << extent[1]  << ", " << extent[2] << ", " << extent[3]  << endl;
+  cout << "  Writing to: " << TIFFCurrentDirectory(this->TIFFPtr);
 
   // this->SelectDirectory(level);
   // for debug
@@ -548,7 +647,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
 
   // Compute tile name
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
-  // cout << "TNum: " << tNum << endl;
+  cout << ", " << tNum << endl;
 
   if(this->CompressionMode == COMPRESS_WITH_VTK)
     {
@@ -620,7 +719,7 @@ void vtkPTIFWriter::TileDataCompressWithVTK(int num, vtkImageData *data)
 
     // Trim the jpegtables
 
-    cout << "Compressed TileSize: " << compressedTileSize << endl;
+    // cout << "   Compressed TileSize: " << compressedTileSize << endl;
     if (TIFFWriteRawTile(this->TIFFPtr, num, (unsigned char *) jpgData->GetVoidPointer(0), compressedTileSize) < 0)
       {
       vtkErrorMacro(<< "Error writing tile");

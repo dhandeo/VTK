@@ -32,6 +32,15 @@ enum COMPRESSION_MODE
   COMPRESS_WITH_JPEGLIB
   };
 
+enum EXTENTS_VALIDITY
+  {
+  WITHIN,
+  OUTSIDE,
+  PARTIAL
+  };
+
+
+
 class VTKDOMAINSMICROSCOPY_EXPORT vtkPTIFWriter : public vtkImageWriter
 {
 public:
@@ -49,11 +58,16 @@ public:
   vtkSetMacro(TileSize, int);
   vtkGetMacro(TileSize, int);
 
+  // For testing without actually file update
+  vtkSetMacro(Width, int);
+  vtkSetMacro(Height, int);
+
   // Description:
   // The main interface which triggers the writer to start.
   virtual void Write();
   void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
   int internalComputeMaxLevel(int, int);
+  int IsFullTileWithinImage(int *extents, int *valid_extents, int width, int height);
 
 protected:
   vtkPTIFWriter();
@@ -67,7 +81,7 @@ protected:
   int NumScalars;
   int MaxLevel; // Depends on the max extent
   unsigned char CompressionMode;
-
+  vtkSmartPointer<vtkImageData> white_tile;
 
   // Extents for combinling lower tiles into upper tile
   int qExtent[6];
@@ -75,7 +89,8 @@ protected:
   int sExtent[6];
   int tExtent[6];
 
-  std::vector<int> heights;
+  std::vector<int> heights; // Used for inverting orientation
+  std::vector<int> widths; // Used for outside comparison
 
   //
   int Compression;
@@ -114,9 +129,6 @@ protected:
 
   void TileDataCompressWithVTK(int num, vtkImageData *data);
   void TileDataCompressWithJPEGLib(int num, vtkImageData *data);
-
-  int IsFullTileWithinImage(int *extents, int *valid_extents);
-
 
   vtkPTIFWriter(const vtkPTIFWriter&);  // Not implemented.
   void operator=(const vtkPTIFWriter&);  // Not implemented.

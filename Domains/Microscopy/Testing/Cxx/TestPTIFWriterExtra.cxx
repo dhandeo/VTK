@@ -56,5 +56,26 @@ int TestPTIFWriterExtra(int argc, char** argv)
   cout << "Total levels for 1025,513: " << writer->internalComputeMaxLevel(1025,513) + 1 << endl;
   cout << "Total levels for 2048,1024: " << writer->internalComputeMaxLevel(2048,1024) + 1 << endl;
 
+  int valid_extents[6];
+  int result;
+  writer->SetWidth(400);
+  writer->SetHeight(600);
+
+  // Within
+  int extents1[] = {0, 255, 0, 255,0,0};
+  result = writer->IsFullTileWithinImage(extents1, valid_extents, 400, 600);
+  assert(result == WITHIN);
+
+  // Out
+  int extents2[] = {500, 800, 0, 255,0,0};
+  result = writer->IsFullTileWithinImage(extents2, valid_extents, 400, 600);
+  assert(result == OUTSIDE);
+
+  // Partial
+  int extents3[] = {350, 450, 0, 255,0,0};
+  result = writer->IsFullTileWithinImage(extents3, valid_extents, 400, 600);
+  assert(result == PARTIAL);
+  assert(valid_extents[1] == 399);
+
   return EXIT_SUCCESS;
 }
