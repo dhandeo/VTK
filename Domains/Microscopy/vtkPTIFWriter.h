@@ -49,13 +49,13 @@ public:
   virtual void PrintSelf(ostream& os, vtkIndent indent);
 
   // Configurable parameters
-  vtkSetVector3Macro(Padding, unsigned char);
+  void SetPaddingColorRGB(unsigned char, unsigned char, unsigned char);
   vtkGetVector3Macro(Padding, unsigned char);
 
   vtkSetMacro(JPEGQuality, int);
   vtkGetMacro(JPEGQuality, int);
 
-  vtkSetMacro(TileSize, int);
+  void SetTileSize(int);
   vtkGetMacro(TileSize, int);
 
   // For testing without actually file update
@@ -68,10 +68,12 @@ public:
   void ComputeExtentsFromTileName(const std::string &tileName, int * ext);
   int internalComputeMaxLevel(int, int);
   int IsFullTileWithinImage(int *extents, int *valid_extents, int width, int height);
-
 protected:
   vtkPTIFWriter();
   ~vtkPTIFWriter() {}
+
+  vtkSetVector3Macro(Padding, unsigned char);
+  void InitBackgroundTile();
 
   // Internal variables
   TIFF* TIFFPtr; // Pointer to tif file opened for read / write
@@ -81,7 +83,7 @@ protected:
   int NumScalars;
   int MaxLevel; // Depends on the max extent
   unsigned char CompressionMode;
-  vtkSmartPointer<vtkImageData> white_tile;
+  vtkSmartPointer<vtkImageData> background_tile;
 
   // Extents for combinling lower tiles into upper tile
   int qExtent[6];

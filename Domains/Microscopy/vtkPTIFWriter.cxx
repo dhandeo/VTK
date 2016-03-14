@@ -46,29 +46,55 @@ vtkPTIFWriter::vtkPTIFWriter()
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256),
     CompressionMode(COMPRESS_WITH_VTK)
 {
-  this->SetPadding(255, 255, 255);
-
   this->ComputeExtentsFromTileName("tq", this->qExtent);
   this->ComputeExtentsFromTileName("tr", this->rExtent);
   this->ComputeExtentsFromTileName("ts", this->sExtent);
   this->ComputeExtentsFromTileName("tt", this->tExtent);
 
-  // Initialize white tile
-  this->white_tile = vtkImageData::New();
-  this->white_tile->SetExtent(0,this->TileSize-1,0, this->TileSize-1, 0,0);
-  this->white_tile->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+  this->SetPadding(255, 255, 255); // White background by default
+  this->InitBackgroundTile();
+}
 
-  for(int j=0; j<this->TileSize; j++)
+
+void vtkPTIFWriter::SetTileSize(int t)
+{
+  // TODO: Verify
+  this->TileSize = t;
+  this->InitBackgroundTile();
+}
+
+void vtkPTIFWriter::InitBackgroundTile()
+{
+    // Initialize white tile
+    if(this->background_tile != NULL)
     {
-    for(int k=0; k<this->TileSize; k++)
+      this->background_tile = NULL; // Calls the destructor
+    }
+
+    this->background_tile = vtkImageData::New();
+    this->background_tile->SetExtent(0,this->TileSize-1,0, this->TileSize-1, 0,0);
+    this->background_tile->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
+
+    for(int j=0; j<this->TileSize; j++)
       {
-        for(int m =0; m < this->white_tile->GetNumberOfScalarComponents(); m++)
+      for(int k=0; k<this->TileSize; k++)
         {
-        white_tile->SetScalarComponentFromDouble(j,k,0,m, 255.);
+          for(int m =0; m < this->background_tile->GetNumberOfScalarComponents(); m++)
+          {
+          this->background_tile->SetScalarComponentFromDouble(j,k,0,m, this->Padding[m]);
+          }
         }
       }
-    }
 }
+
+
+void vtkPTIFWriter::SetPaddingColorRGB(unsigned char r, unsigned char g, unsigned char b)
+{
+  this->SetPadding(r, g, b);
+  this->InitBackgroundTile();
+}
+
+
 
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::Write()
@@ -404,14 +430,29 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
 
 vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
+  cout << current_tile << "  START" << current_tile << endl;
+
   int extents[6];
   int height;
+  int valid_extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
-  // cout << "PYRAMID: Got " << current_tile << endl;
-
+  //
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
   int level = this->MaxLevel - current_tile.length()+1;
+  int tile_status = this->IsFullTileWithinImage(extents, valid_extents, this->widths[level], this->heights[level]);
+
+  if(tile_status == OUTSIDE)
+    {
+    cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
+    cout << current_tile << "  OUTSIDE" << endl;
+    vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
+    ret->DeepCopy(this->background_tile);
+    return ret; // Should never be called and can be pruned
+    }
+
+  // cout << "PYRAMID: Got " << current_tile << endl;
+
 
   // If belongs to base image then get the images
   if(current_tile.length() >= this->MaxLevel + 1)
@@ -421,19 +462,6 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
     //TODO: DJ find out what extents are availabel in file
 
-
-    int valid_extents[6];
-
-    int tile_status = this->IsFullTileWithinImage(extents, valid_extents);
-
-    cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
-
-    if(tile_status == OUTSIDE)
-      {
-      cout << "  OUTSIDE" << endl;
-      // No need to write tile
-      return this-> white_tile;
-      }
 
     vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
 
@@ -467,7 +495,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     // cout << "Wrote" << current_tile << endl;
 
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
-    ret->DeepCopy(this->white_tile);
+    ret->DeepCopy(this->background_tile);
     cout << "  SHALLOWCOPIED" << endl;
     if(tile_status == PARTIAL)
       {
@@ -489,10 +517,10 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     }
 
   // Get parents
-  vtkSmartPointer<vtkImageData> q = ProcessTile(current_tile + 'q');
-  vtkSmartPointer<vtkImageData> r = ProcessTile(current_tile + 'r');
-  vtkSmartPointer<vtkImageData> s = ProcessTile(current_tile + 's');
   vtkSmartPointer<vtkImageData> t = ProcessTile(current_tile + 't');
+  vtkSmartPointer<vtkImageData> s = ProcessTile(current_tile + 's');
+  vtkSmartPointer<vtkImageData> r = ProcessTile(current_tile + 'r');
+  vtkSmartPointer<vtkImageData> q = ProcessTile(current_tile + 'q');
   // debug_jpeg(current_tile, std::string("_q_really.jpg"), q.GetPointer());
   // debug_jpeg(current_tile, std::string("_t_really.jpg"), t.GetPointer());
 
@@ -504,9 +532,9 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   big->SetExtent(0,bigdim-1,0,bigdim-1,0,0);
   big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
-  // Pad
-  void *ptr = big->GetScalarPointer();
-  memset(ptr, this->Padding[0], bigdim*bigdim*3);
+  // // Pad
+  // void *ptr = big->GetScalarPointer();
+  // memset(ptr, this->Padding[0], bigdim*bigdim*3);
   // debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
   q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
   // debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
@@ -545,11 +573,13 @@ void vtkPTIFWriter::InitPyramid()
   TIFF *tif = this->TIFFPtr;
 
   this->heights.reserve(this->MaxLevel + 1);
+  this->widths.reserve(this->MaxLevel + 1);
 
   for (int level = 0; level <= this->MaxLevel; level++)
     {
     cout << "INIT Level: " << level << ": " << width << ", " << height << endl;
     this->heights[level] = height;
+    this->widths[level] = width;
 
     cout << "Current Level" << TIFFCurrentDirectory(tif) << endl;
     // this->SelectDirectory(level);
@@ -566,6 +596,7 @@ void vtkPTIFWriter::InitPyramid()
     TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
 
     // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
+    TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 
     TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3); // Ignore alpha
     TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8); // Always same from openslide reader
