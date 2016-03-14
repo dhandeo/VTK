@@ -11,6 +11,12 @@
      the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
      PURPOSE.  See the above copyright notice for more information.
 
+
+  Notes:
+
+  Extents - Usually the requested extents by the pyramid creator
+  valid_extents (should be )
+  paddngy - Most important the width of padding (useful for logic on where to place data)
 =========================================================================*/
 
 #include "vtkPTIFWriter.h"
@@ -46,10 +52,16 @@ vtkPTIFWriter::vtkPTIFWriter()
     XResolution(-1.0), YResolution(-1.0), JPEGQuality(75), TileSize(256),
     CompressionMode(COMPRESS_WITH_VTK)
 {
+  // These are now where the tif expects, i.e. left top alignment
   this->ComputeExtentsFromTileName("tq", this->qExtent);
   this->ComputeExtentsFromTileName("tr", this->rExtent);
   this->ComputeExtentsFromTileName("ts", this->sExtent);
   this->ComputeExtentsFromTileName("tt", this->tExtent);
+
+  cout << "q: "   << this->qExtent[0]
+          << ", " << this->qExtent[1]
+          << ", " << this->qExtent[2]
+          << ", " << this->qExtent[3]  << endl;
 
   this->SetPadding(255, 255, 255); // White background by default
   this->InitBackgroundTile();
@@ -214,7 +226,7 @@ int vtkPTIFWriter::RequestData(
 
     int *extents;
     extents = vtkStreamingDemandDrivenPipeline::GetUpdateExtent(inInfo);
-    // cout << "RequestData: " << extents[0] << ", " << extents[1] << ", " << extents[2] <<", " << extents[3] <<endl;
+    // cout << "## RequestData: " << extents[0] << ", " << extents[1] << ", " << extents[2] <<", " << extents[3] <<endl;
     // cout << "InputDims: " << dim[0] << ", " << dim[1] << endl;
 
   return 1;
@@ -399,7 +411,7 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
   int partial = WITHIN;
 
   assert(extents[0] >= 0);
-  assert(extents[2] >= 0);
+  // assert(extents[2] >= 0);
 
   if(extents[0] >= width || extents[2] >= height)
     {
@@ -411,15 +423,16 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
   if(extents[1] >= width)
     {
     valid_extents[1] = width - 1;
-    valid_extents[3] = extents[3];
+    valid_extents[2] = extents[2];
     partial = PARTIAL;
     // cout << "XPARTIAL" << endl;
     }
 
   // repeat same for height
-  if(extents[3] >= height)
+  if(extents[2] <= 0)
     {
-    valid_extents[3] = height - 1;
+    // Clamp the height
+    valid_extents[2] = 0;
     // If x is already partial then valid_extents[1] is already clamped
     if(partial != PARTIAL)
       {
@@ -432,7 +445,7 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
     {
     // Make sure valid_extents are filled
     valid_extents[0] = extents[0];
-    valid_extents[2] = extents[2];
+    valid_extents[3] = extents[3];
     valid_extents[4] = extents[4];
     valid_extents[5] = extents[5];
     }
@@ -442,26 +455,51 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
 
 vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
   {
-  cout << current_tile << "  START" << current_tile << endl;
+  cout << "  START:" << current_tile << endl;
 
   int extents[6];
   int height;
   int valid_extents[6];
   this->ComputeExtentsFromTileName(current_tile, extents);
-  //
+
+  // Used later only for returning the final tile
+  cout << "    OExtents: " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
+
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
   int level = this->MaxLevel - current_tile.length()+1;
-  int tile_status = this->IsFullTileWithinImage(extents, valid_extents, this->widths[level], this->heights[level]);
+
+  // Translate the extents to be read from the image
+  this->DataUpdateExtent[0] = extents[0];
+  this->DataUpdateExtent[1] = extents[1];
+  this->DataUpdateExtent[2] = this->heights[level]-1 - extents[3];
+  this->DataUpdateExtent[3] = this->heights[level]-1 - extents[2];
+  this->DataUpdateExtent[4] = extents[4];
+  this->DataUpdateExtent[5] = extents[5];
+
+  // Here DataUpdateExtent can be negative but that only means padding is required in the bottom
+  cout << "    Dataext: " << DataUpdateExtent[0]  << ", " << DataUpdateExtent[1]  << ", " << DataUpdateExtent[2] << ", " << DataUpdateExtent[3]  << endl;
+
+  int tile_status = this->IsFullTileWithinImage(this->DataUpdateExtent, valid_extents, this->widths[level], this->heights[level]);
 
   if(tile_status == OUTSIDE)
     {
-    cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
+    // cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
     cout << current_tile << "  OUTSIDE" << endl;
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
     ret->DeepCopy(this->background_tile);
     return ret; // Should never be called and can be pruned
     }
+
+    if(tile_status == PARTIAL)
+      {
+      cout << "  PARTIAL" << endl;
+      cout << "    Valid  : "   << valid_extents[0]
+                        << ", " << valid_extents[1]
+                        << ", " << valid_extents[2]
+                        << ", " << valid_extents[3]  << endl;
+      }
+
 
   // cout << "PYRAMID: Got " << current_tile << endl;
 
@@ -473,8 +511,6 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
     // Get data from input
 
     //TODO: DJ find out what extents are availabel in file
-
-
     vtkStreamingDemandDrivenPipeline* exec = vtkStreamingDemandDrivenPipeline::SafeDownCast(this->GetExecutive());
 
     if (tile_status == PARTIAL)
@@ -486,43 +522,66 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
       this->DataUpdateExtent[3] = valid_extents[3];
       this->DataUpdateExtent[4] = valid_extents[4];
       this->DataUpdateExtent[5] = valid_extents[5];
-      exec->SetUpdateExtent(this->GetInputInformation(0, 0), valid_extents);
+      exec->SetUpdateExtent(this->GetInputInformation(0, 0), this->DataUpdateExtent);
       }
     else
       {
       cout << "  WITHIN" << endl;
       this->DataUpdateExtent[0] = extents[0];
       this->DataUpdateExtent[1] = extents[1];
-      this->DataUpdateExtent[2] = extents[2];
-      this->DataUpdateExtent[3] = extents[3];
+      this->DataUpdateExtent[2] = this->heights[level]-1 - extents[3];
+      this->DataUpdateExtent[3] = this->heights[level]-1 - extents[2];
       this->DataUpdateExtent[4] = extents[4];
       this->DataUpdateExtent[5] = extents[5];
-      exec->SetUpdateExtent(this->GetInputInformation(0, 0), extents);
+      exec->SetUpdateExtent(this->GetInputInformation(0, 0), this->DataUpdateExtent);
       }
 
     this->Modified();
     this->Update();
 
     // for debug
-    // cout << "Wrote" << current_tile << endl;
+    // cout << "WROTE: " << current_tile << endl;
 
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
     ret->DeepCopy(this->background_tile);
-    cout << "  SHALLOWCOPIED" << endl;
     if(tile_status == PARTIAL)
       {
-      ret->SetExtent(extents);
-      ret->CopyAndCastFrom(this->GetInput(), valid_extents);
-      ret->SetExtent(extents);
+      // Where to pad
+      int imageextents[6];
+      imageextents[4] = 0;
+      imageextents[5] = 0;
+
+      // TODO:DJ Compose image extents for bottom and right padding
+      // Subtract from origins
+      // padding_top =  this->TileSize-1
+
+      int xwidth = this->DataUpdateExtent[1]-this->DataUpdateExtent[0];
+      int ywidth = this->DataUpdateExtent[3]-this->DataUpdateExtent[2]; // Could be zero
+
+      imageextents[0] = 0;
+      imageextents[1] = this->DataUpdateExtent[1]-this->DataUpdateExtent[0];
+      imageextents[2] = this->TileSize-1 - ywidth;
+      imageextents[3] = this->TileSize-1;
+
+      vtkNew<vtkImageData> temp;
+      temp->DeepCopy(this->GetInput());
+      temp->SetExtent(imageextents);
+
+      cout << "imageexq: "    << imageextents[0]
+                      << ", " << imageextents[1]
+                      << ", " << imageextents[2]
+                      << ", " << imageextents[3]  << endl;
+
+      ret->SetExtent(0, this->TileSize -1, 0, this->TileSize -1, 0, 0);
+      ret->CopyAndCastFrom(temp.GetPointer(), imageextents);
       }
     else
       {
-      ret->SetExtent(extents);
-      ret->CopyAndCastFrom(this->GetInput(), extents);
+      ret->SetExtent(this->DataUpdateExtent);
+      ret->CopyAndCastFrom(this->GetInput(), this->DataUpdateExtent);
       // ret->Print(cout);
       }
-
-    // ret->SetExtent(extents);
+    ret->SetExtent(extents);
     this->WriteTile(ret, extents, level); // Only extent is useful parameter
     debug_jpeg(current_tile, std::string("_ready.jpg"), ret);
     return ret;
@@ -548,11 +607,10 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   // void *ptr = big->GetScalarPointer();
   // memset(ptr, this->Padding[0], bigdim*bigdim*3);
   // debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
-  q->SetExtent(this->qExtent); big->CopyAndCastFrom(q, this->qExtent);
-  // debug_jpeg(current_tile, std::string("_big_q.jpg"), big.GetPointer());
-  r->SetExtent(this->rExtent); big->CopyAndCastFrom(r, this->rExtent);
-  s->SetExtent(this->sExtent); big->CopyAndCastFrom(s, this->sExtent);
-  t->SetExtent(this->tExtent); big->CopyAndCastFrom(t, this->tExtent);
+  q->SetExtent(this->tExtent); big->CopyAndCastFrom(q, this->tExtent);
+  r->SetExtent(this->sExtent); big->CopyAndCastFrom(r, this->sExtent);
+  s->SetExtent(this->rExtent); big->CopyAndCastFrom(s, this->rExtent);
+  t->SetExtent(this->qExtent); big->CopyAndCastFrom(t, this->qExtent);
 
   cout << "PYRAMID: Processing: " << current_tile << endl;
 
@@ -689,7 +747,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     }
 
   // Compute tile name
-  int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], this->heights[level] - extent[2]-1, 0, 0);
+  int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], extent[2], 0, 0);
   cout << ", " << tNum << endl;
 
   if(this->CompressionMode == COMPRESS_WITH_VTK)

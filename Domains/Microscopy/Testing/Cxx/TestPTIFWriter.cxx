@@ -44,8 +44,9 @@ int TestPTIFWriter(int argc, char** argv)
   // vtkNew<vtkOpenSlideReader> reader;
 
   // const char* rasterFileName = "/home/dhan/Downloads/marriage.jpg";
-  const char* rasterFileName = "/home/dhan/Downloads/castlerect.jpg";
-  // const char* rasterFileName = "/home/dhan/Downloads/castlerect2.jpg";
+  // const char* rasterFileName = "/home/dhan/Downloads/tree.jpg";
+  // const char* rasterFileName = "/home/dhan/Downloads/castlerect3.jpg";
+  const char* rasterFileName = "/home/dhan/Downloads/castlerect5.jpg";
   // const char* rasterFileName = "/home/dhan/Downloads/castle2.jpg";
   std::cout << "Got Filename: " << rasterFileName << std::endl;
 
