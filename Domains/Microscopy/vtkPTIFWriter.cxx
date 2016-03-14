@@ -346,13 +346,17 @@ void debug_jpeg(std::string const tile, std::string prefix, vtkImageData* img)
 void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int * ext)
   {
   // Compute the extents from the prefix
+  // Returned extents are with origin at top, left with y axis looking downwards
   ext[0] = 0;
   ext[2] = 0;
 
   int step = this->TileSize;
+  unsigned long height = this->TileSize;
 
   for ( std::string::const_reverse_iterator rit=tileName.rbegin() ; rit < tileName.rend(); rit++ )
     {
+    height *= 2;
+
     // Do the adjustments based on the incoming character
     if(*rit == 'q')
       {
@@ -370,10 +374,18 @@ void vtkPTIFWriter::ComputeExtentsFromTileName(const std::string & tileName, int
     step = step * 2;
     }
 
+  height /= 2;
+
   ext[1] = ext[0] + this->TileSize-1;
   ext[3] = ext[2] + this->TileSize-1;
   ext[4] = 0;
   ext[5] = 0;
+
+  // Subtract from the height and swap
+  int temp = ext[2];
+  ext[2] = height - ext[3]-1;
+  ext[3] = height - temp-1;
+
   }
 
 int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int width, int height)

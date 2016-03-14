@@ -25,24 +25,43 @@ int TestPTIFWriterExtra(int argc, char** argv)
 {
   vtkNew<vtkPTIFWriter> writer;
   int extents[6];
+
+  //TODO: DJ add asserts
   writer->ComputeExtentsFromTileName(std::string("t"), extents);
   cout << "t: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 0); assert(extents[1] == 255); assert(extents[2] == 0); assert(extents[3] == 255);
+
   writer->ComputeExtentsFromTileName(std::string("tq"), extents);
   cout << "tq: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 0); assert(extents[1] == 255); assert(extents[2] == 0); assert(extents[3] == 255);
+
   writer->ComputeExtentsFromTileName(std::string("tr"), extents);
   cout << "tr: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 256); assert(extents[1] == 511); assert(extents[2] == 0); assert(extents[3] == 255);
+
   writer->ComputeExtentsFromTileName(std::string("ts"), extents);
   cout << "ts: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 256); assert(extents[1] == 511); assert(extents[2] == 256); assert(extents[3] == 511);
+
   writer->ComputeExtentsFromTileName(std::string("tt"), extents);
   cout << "tt: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 0); assert(extents[1] == 255); assert(extents[2] == 256); assert(extents[3] == 511);
+
   writer->ComputeExtentsFromTileName(std::string("trq"), extents);
   cout << "trq: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 512); assert(extents[1] == 767); assert(extents[2] == 0); assert(extents[3] == 255);
+
   writer->ComputeExtentsFromTileName(std::string("trr"), extents);
   cout << "trr: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 768); assert(extents[1] == 1023); assert(extents[2] == 0); assert(extents[3] == 255);
+
   writer->ComputeExtentsFromTileName(std::string("trs"), extents);
   cout << "trs: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 768); assert(extents[1] == 1023); assert(extents[2] == 256); assert(extents[3] == 511);
+
   writer->ComputeExtentsFromTileName(std::string("trt"), extents);
   cout << "trt: " << extents[0] << ", " << extents[1] << ", "  << extents[2] << ", "  << extents[3] << endl;
+  assert(extents[0] == 512); assert(extents[1] == 767); assert(extents[2] == 256); assert(extents[3] == 511);
 
   cout << endl;
 
