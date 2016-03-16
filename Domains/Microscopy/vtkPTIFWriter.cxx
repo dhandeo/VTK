@@ -58,10 +58,10 @@ vtkPTIFWriter::vtkPTIFWriter()
   this->ComputeExtentsFromTileName("ts", this->sExtent);
   this->ComputeExtentsFromTileName("tt", this->tExtent);
 
-  cout << "q: "   << this->qExtent[0]
-          << ", " << this->qExtent[1]
-          << ", " << this->qExtent[2]
-          << ", " << this->qExtent[3]  << endl;
+  // cout << "q: "   << this->qExtent[0]
+  //         << ", " << this->qExtent[1]
+  //         << ", " << this->qExtent[2]
+  //         << ", " << this->qExtent[3]  << endl;
 
   this->SetPadding(255, 255, 255); // White background by default
   this->InitBackgroundTile();
@@ -234,27 +234,14 @@ int vtkPTIFWriter::RequestData(
 
 void vtkPTIFWriter::SelectDirectory(int dir)
 {
-  // cout << "SelectDIR current Dir: " << TIFFCurrentDirectory(this->TIFFPtr) << endl;
-  // cout << "     Requested Dir: " << dir << endl;
-  //
-  // // if(this->CurDir != dir) {
-  // // if(TIFFCurrentDirectory(this->TIFFPtr) == 65535)
-  //
-  // // TIFFCheckpointDirectory(this->TIFFPtr);
-  // assert(TIFFSetDirectory(this->TIFFPtr, dir) == 1);
-  // this->CurDir = TIFFCurrentDirectory(this->TIFFPtr);
-  // // }
-  // // cout << "       Cur: " << this->CurDir << ", Req: " << dir << endl;
-  // assert(this->CurDir == dir);
-  // cout << "Selected .. " << endl;
-  //
+  // The logic is moved to init pyramid
 }
 
 //----------------------------------------------------------------------------
 void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6])
 {
   int dims[3];
-  cout << "InHeader " << endl;
+  // cout << "InHeader " << endl;
   this->UpdateInformation();
 
   // Get the input information
@@ -291,10 +278,11 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
   // Check if we need to write an image stack (pages > 2).
   this->Pages = extent[5] - extent[4] + 1;
 
-  cout << this->FileName << endl;
-  cout << "Width: " << this->Width << endl;
-  cout << "Height: " << this->Height << endl;
-  cout << "MaxLevel: " << this->MaxLevel << endl;
+  // Debug
+  // cout << this->FileName << endl;
+  // cout << "Width: " << this->Width << endl;
+  // cout << "Height: " << this->Height << endl;
+  // cout << "MaxLevel: " << this->MaxLevel << endl;
 
   // Check the resolution too, assume we store it in metric (as in reader).
   // TODO: Resolution is ignored
@@ -310,11 +298,7 @@ void vtkPTIFWriter::WriteFileHeader(ofstream *, vtkImageData *data2, int wExt[6]
     return;
     }
   this->TIFFPtr = tif;
-  // TIFFWriteDirectory(this->TIFFPtr);
-  // TIFFSetDirectory(this->TIFFPtr, 0);
   this->InitPyramid();
-
-  cout << "Done opening .." << endl;
 
   // Make sure that the
   if (tif == NULL)
@@ -331,10 +315,7 @@ int vtkPTIFWriter::internalComputeMaxLevel(int width, int height)
   assert(height != 0);
 
   float ma = std::max(width, height);
-  // cout << endl << "  max:" << ma << endl;
   ma /= this->TileSize;
-  // cout << "  ma:" << ma << endl;
-  // cout << "  log2:" << log2(ma) << endl;
   return int(ceil(log2(ma)));
   }
 
@@ -415,7 +396,6 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
 
   if(extents[0] >= width || extents[2] >= height)
     {
-    // cout << "OUTSIDE" << endl;
     return OUTSIDE; // Dont bother updating valid extents
     }
 
@@ -454,60 +434,56 @@ int vtkPTIFWriter::IsFullTileWithinImage(int *extents, int *valid_extents, int w
   }
 
 vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &current_tile)
-  {
-  cout << "  START:" << current_tile << endl;
+{
+  // Processes tile, by requesting and merging children of the pyramid tree.
+  // Returns image read from the file if no further children
 
   int extents[6];
   int height;
   int valid_extents[6];
-  this->ComputeExtentsFromTileName(current_tile, extents);
+  this->ComputeExtentsFromTileName(current_tile, extents);   // Extents are used later only for returning the final tile
 
-  // Used later only for returning the final tile
-  cout << "    OExtents: " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
+  // cout << "    OExtents: " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
 
   // Level to which to write the image
   // Level 0 is full resolution and last level depends on the
   int level = this->MaxLevel - current_tile.length()+1;
 
-  // Translate the extents to be read from the image
+  // Compute the extents for vtk coordinate system for reading from the image
+  // TODO: DJ possibly not required
   this->DataUpdateExtent[0] = extents[0];
   this->DataUpdateExtent[1] = extents[1];
   this->DataUpdateExtent[2] = this->heights[level]-1 - extents[3];
   this->DataUpdateExtent[3] = this->heights[level]-1 - extents[2];
   this->DataUpdateExtent[4] = extents[4];
   this->DataUpdateExtent[5] = extents[5];
-
   // Here DataUpdateExtent can be negative but that only means padding is required in the bottom
-  cout << "    Dataext: " << DataUpdateExtent[0]  << ", " << DataUpdateExtent[1]  << ", " << DataUpdateExtent[2] << ", " << DataUpdateExtent[3]  << endl;
 
+  // cout << "    Dataext: " << DataUpdateExtent[0]  << ", " << DataUpdateExtent[1]  << ", " << DataUpdateExtent[2] << ", " << DataUpdateExtent[3]  << endl;
   int tile_status = this->IsFullTileWithinImage(this->DataUpdateExtent, valid_extents, this->widths[level], this->heights[level]);
 
   if(tile_status == OUTSIDE)
     {
-    // cout << "  " << extents[0]  << ", " << extents[1]  << ", " << extents[2] << ", " << extents[3]  << endl;
-    cout << current_tile << "  OUTSIDE" << endl;
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
     ret->DeepCopy(this->background_tile);
     return ret; // Should never be called and can be pruned
     }
 
-    if(tile_status == PARTIAL)
-      {
-      cout << "  PARTIAL" << endl;
-      cout << "    Valid  : "   << valid_extents[0]
-                        << ", " << valid_extents[1]
-                        << ", " << valid_extents[2]
-                        << ", " << valid_extents[3]  << endl;
-      }
-
-
-  // cout << "PYRAMID: Got " << current_tile << endl;
+    // Debug partial tile
+    // if(tile_status == PARTIAL)
+    //   {
+    //   cout << "  PARTIAL" << endl;
+    //   cout << "    Valid  : "   << valid_extents[0]
+    //                     << ", " << valid_extents[1]
+    //                     << ", " << valid_extents[2]
+    //                     << ", " << valid_extents[3]  << endl;
+    //   }
 
 
   // If belongs to base image then get the images
   if(current_tile.length() >= this->MaxLevel + 1)
     {
-    cout << "PYRAMID: Input " << current_tile << endl;
+    // cout << "PYRAMID: Input " << current_tile << endl;
     // Get data from input
 
     //TODO: DJ find out what extents are availabel in file
@@ -515,7 +491,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
 
     if (tile_status == PARTIAL)
       {
-      cout << "  PARTIAL" << endl;
+      // cout << "  PARTIAL" << endl;
       this->DataUpdateExtent[0] = valid_extents[0];
       this->DataUpdateExtent[1] = valid_extents[1];
       this->DataUpdateExtent[2] = valid_extents[2];
@@ -526,7 +502,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
       }
     else
       {
-      cout << "  WITHIN" << endl;
+      // cout << "  WITHIN" << endl;
       this->DataUpdateExtent[0] = extents[0];
       this->DataUpdateExtent[1] = extents[1];
       this->DataUpdateExtent[2] = this->heights[level]-1 - extents[3];
@@ -536,14 +512,15 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
       exec->SetUpdateExtent(this->GetInputInformation(0, 0), this->DataUpdateExtent);
       }
 
-    this->Modified();
+    this->Modified(); // TODO:DJ Verify that this is not making the streaming slow
     this->Update();
 
-    // for debug
-    // cout << "WROTE: " << current_tile << endl;
 
+    // Prepare the return data
     vtkSmartPointer<vtkImageData> ret = vtkImageData::New();
+    // TODO:DJ Copy entire data only if partial tile
     ret->DeepCopy(this->background_tile);
+
     if(tile_status == PARTIAL)
       {
       // Where to pad
@@ -551,10 +528,7 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
       imageextents[4] = 0;
       imageextents[5] = 0;
 
-      // TODO:DJ Compose image extents for bottom and right padding
-      // Subtract from origins
-      // padding_top =  this->TileSize-1
-
+      // Compose image extents (i.e. where the image should go) with bottom and right padding
       int xwidth = this->DataUpdateExtent[1]-this->DataUpdateExtent[0];
       int ywidth = this->DataUpdateExtent[3]-this->DataUpdateExtent[2]; // Could be zero
 
@@ -567,23 +541,28 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
       temp->DeepCopy(this->GetInput());
       temp->SetExtent(imageextents);
 
-      cout << "imageexq: "    << imageextents[0]
-                      << ", " << imageextents[1]
-                      << ", " << imageextents[2]
-                      << ", " << imageextents[3]  << endl;
+      // Debug
+      // cout << "imageexq: "    << imageextents[0]
+      //                 << ", " << imageextents[1]
+      //                 << ", " << imageextents[2]
+      //                 << ", " << imageextents[3]  << endl;
 
       ret->SetExtent(0, this->TileSize -1, 0, this->TileSize -1, 0, 0);
       ret->CopyAndCastFrom(temp.GetPointer(), imageextents);
       }
     else
       {
+      // TODO:DJ initialize the imagedata here
       ret->SetExtent(this->DataUpdateExtent);
       ret->CopyAndCastFrom(this->GetInput(), this->DataUpdateExtent);
       // ret->Print(cout);
       }
+    // Output
     ret->SetExtent(extents);
     this->WriteTile(ret, extents, level); // Only extent is useful parameter
-    debug_jpeg(current_tile, std::string("_ready.jpg"), ret);
+
+    // Optionally write intermediate output
+    // debug_jpeg(current_tile, std::string("_ready.jpg"), ret);
     return ret;
     }
 
@@ -592,6 +571,8 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   vtkSmartPointer<vtkImageData> s = ProcessTile(current_tile + 's');
   vtkSmartPointer<vtkImageData> r = ProcessTile(current_tile + 'r');
   vtkSmartPointer<vtkImageData> q = ProcessTile(current_tile + 'q');
+
+  // Optionally write out what was returned from the lower level of pyramid
   // debug_jpeg(current_tile, std::string("_q_really.jpg"), q.GetPointer());
   // debug_jpeg(current_tile, std::string("_t_really.jpg"), t.GetPointer());
 
@@ -603,16 +584,15 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   big->SetExtent(0,bigdim-1,0,bigdim-1,0,0);
   big->AllocateScalars(VTK_UNSIGNED_CHAR, 3);
 
-  // // Pad
+  // Explicit Padding
   // void *ptr = big->GetScalarPointer();
   // memset(ptr, this->Padding[0], bigdim*bigdim*3);
   // debug_jpeg(current_tile, std::string("_big_blank.jpg"), big.GetPointer());
+
   q->SetExtent(this->tExtent); big->CopyAndCastFrom(q, this->tExtent);
   r->SetExtent(this->sExtent); big->CopyAndCastFrom(r, this->sExtent);
   s->SetExtent(this->rExtent); big->CopyAndCastFrom(s, this->rExtent);
   t->SetExtent(this->qExtent); big->CopyAndCastFrom(t, this->qExtent);
-
-  cout << "PYRAMID: Processing: " << current_tile << endl;
 
   // Shrink
   vtkNew<vtkImageShrink3D> shrinkFilter;
@@ -621,14 +601,12 @@ vtkSmartPointer<vtkImageData> vtkPTIFWriter::ProcessTile(const std::string &curr
   shrinkFilter->Update();
 
   // Write it out
-  debug_jpeg(current_tile, std::string("_ready.jpg"), shrinkFilter->GetOutput());
-  this->WriteTile(shrinkFilter->GetOutput(), extents, level); // Only extent is useful parameter
-  cout << "PYRAMID: Processed: " << current_tile << endl;
+  // debug_jpeg(current_tile, std::string("_ready.jpg"), shrinkFilter->GetOutput());
+  this->WriteTile(shrinkFilter->GetOutput(), extents, level);
+  // cout << "PYRAMID: Processed: " << current_tile << endl;
 
   vtkSmartPointer<vtkImageData> ret=vtkImageData::New();
   ret->ShallowCopy(shrinkFilter->GetOutput());
-  // cout << "PYRAMID: RETURN" << current_tile << endl;
-  // rt->Print(cout);
   return ret;
   }
 
@@ -647,24 +625,21 @@ void vtkPTIFWriter::InitPyramid()
 
   for (int level = 0; level <= this->MaxLevel; level++)
     {
-    cout << "INIT Level: " << level << ": " << width << ", " << height << endl;
+    // cout << "INIT Level: " << level << ": " << width << ", " << height << endl;
     this->heights[level] = height;
     this->widths[level] = width;
-
-    cout << "Current Level" << TIFFCurrentDirectory(tif) << endl;
-    // this->SelectDirectory(level);
 
     // Set mostly default tif tags
     // We are writing single page of the multipage file
     TIFFSetField(tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
-    // Set the page number
-    // TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
+    TIFFSetField(tif, TIFFTAG_PAGENUMBER, level, this->MaxLevel + 1);
 
     TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
     TIFFSetField(tif, TIFFTAG_TILEWIDTH, this->TileSize);
     TIFFSetField(tif, TIFFTAG_TILELENGTH, this->TileSize);
 
+    // Not all readers will support orientation bottomleft
     // TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_BOTLEFT);
     TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 
@@ -678,7 +653,7 @@ void vtkPTIFWriter::InitPyramid()
     TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
     // TIFFSetField(tif, TIFFTAG_JPEGQUALITY, this->JPEGQuality);
 
-    cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
+    // cout << "   Numtiles: " << TIFFNumberOfTiles(tif) << endl;
     TIFFCheckpointDirectory(this->TIFFPtr);
     TIFFWriteDirectory(this->TIFFPtr);
 
@@ -699,18 +674,16 @@ void vtkPTIFWriter::WriteFile(ofstream *file, vtkImageData *data, int ext[6], in
     return;
     }
 
-  cout << "PYRAMID INIT" << endl;
+  // TODO: Multithreading requests should split the requests here
 
   // Recursively build pyramid
   vtkImageData *t = ProcessTile(std::string("t"));
-  // cout << t << endl;
-  // t->Print(cout);
-  cout << "PYRAMID END" << endl;
 }
 
 
 void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
 {
+  // Write imagedata in the tiff tile where requested
   // Set the requested extents
 
   // Access the image data
@@ -718,13 +691,12 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
   // data->GetExtent(ex);
   // cout << "  Data: "    << ex[0]      << ", " << ex[1]      << ", " <<  ex[2]     << ", " << ex[3]      << endl;
 
+  // Make sure tiles in the other directory are valid
   TIFFCheckpointDirectory(this->TIFFPtr);
-  // TIFFWriteDirectory(this->TIFFPtr);
   TIFFSetDirectory(this->TIFFPtr, level);
-  cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " << extent[1]  << ", " << extent[2] << ", " << extent[3]  << endl;
-  cout << "  Writing to: " << TIFFCurrentDirectory(this->TIFFPtr);
+  // cout << "  " << level << "], " <<  "Extent: "  << extent[0]  << ", " << extent[1]  << ", " << extent[2] << ", " << extent[3]  << endl;
+  // cout << "  Writing to: " << TIFFCurrentDirectory(this->TIFFPtr);
 
-  // this->SelectDirectory(level);
   // for debug
   // vtkNew<vtkJPEGWriter> vtkWr;
   // vtkWr->SetFileName("temp.jpg");
@@ -748,7 +720,7 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
 
   // Compute tile name
   int tNum = TIFFComputeTile(this->TIFFPtr, extent[0], extent[2], 0, 0);
-  cout << ", " << tNum << endl;
+  // cout << ", " << tNum << endl;
 
   if(this->CompressionMode == COMPRESS_WITH_VTK)
     {
@@ -756,14 +728,20 @@ void vtkPTIFWriter::WriteTile(vtkImageData *data, int *extent, int level)
     }
   else
     {
+    // This mode is not supported
     this->TileDataCompressWithJPEGLib(tNum, data);
     }
-  // TIFFCheckpointDirectory(this->TIFFPtr);
-  // TIFFWriteDirectory(this->TIFFPtr);
 }
 
 void vtkPTIFWriter::TileDataCompressWithJPEGLib(int num, vtkImageData *data)
 {
+  // Not supported
+  // Comment out following line first before developing
+
+  // TODO:DJ Need to convert image buffer to ycbcr and downsample
+  // it before the jpeg compression is called
+  vtkErrorMacro(<< "Compresison with JPEGLib is not supported in this version");
+
   void *inPtr = data->GetScalarPointer();
   if (TIFFWriteEncodedTile(this->TIFFPtr, num, static_cast<unsigned char*>(inPtr), TIFFTileSize(this->TIFFPtr)) < 0)
     {
@@ -782,13 +760,15 @@ void vtkPTIFWriter::TileDataCompressWithVTK(int num, vtkImageData *data)
     // Writer used to compress the tile.
     vtkSmartPointer<vtkJPEGWriter> vtkW = vtkSmartPointer<vtkJPEGWriter>::New();
     vtkW->WriteToMemoryOn();
-    vtkW->SetFilePattern("Tile_%d");
+    vtkW->SetFilePattern("Tile_%d"); // Ignored as writing to memory
     vtkW->SetInputData(data);
     vtkW->SetQuality(this->JPEGQuality);
     vtkW->ProgressiveOff();
     vtkW->Write();
     jpgData = vtkW->GetResult();
     compressedTileSize = jpgData->GetNumberOfTuples();
+
+    // TODO:DJ Trim the jpegtables
 
     // Drop
     // ff:e0 JFIF optional
@@ -813,12 +793,9 @@ void vtkPTIFWriter::TileDataCompressWithVTK(int num, vtkImageData *data)
     // 173]  f9:d5
     // 13810]  8c:84
 
-
     // Output debug image
     // std::ofstream ofile("test.jpg", ios::out | ios::binary);
     // ofile.write((const char *) jpgData->GetVoidPointer(0), compressedTileSize);
-
-    // Trim the jpegtables
 
     // cout << "   Compressed TileSize: " << compressedTileSize << endl;
     if (TIFFWriteRawTile(this->TIFFPtr, num, (unsigned char *) jpgData->GetVoidPointer(0), compressedTileSize) < 0)
@@ -848,26 +825,4 @@ void vtkPTIFWriter::WriteFileTrailer(ofstream *, vtkImageData *)
 void vtkPTIFWriter::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os,indent);
-
-  os << indent << "Compression: ";
-  // if ( this->Compression == vtkPTIFWriter::PackBits )
-  //   {
-  //   os << "Pack Bits\n";
-  //   }
-  // else if ( this->Compression == vtkPTIFWriter::JPEG )
-  //   {
-  //   os << "JPEG\n";
-  //   }
-  // else if ( this->Compression == vtkPTIFWriter::Deflate )
-  //   {
-  //   os << "Deflate\n";
-  //   }
-  // else if ( this->Compression == vtkPTIFWriter::LZW )
-  //   {
-  //   os << "LZW\n";
-  //   }
-  // else //if ( this->Compression == vtkPTIFWriter::NoCompression )
-  //   {
-  //   os << "No Compression\n";
-  //   }
 }

@@ -13,7 +13,7 @@ vtk_add_test_cxx(${vtk-module}CxxTests  tests
 
 # PTIFWriter tests
 vtk_add_test_cxx(${vtk-module}CxxTests tests
-    TestPTIFWriter.cxx,NO_DATA,NO_VALID,NO_OUTPUT
+    TestPTIFWriter.cxx,NO_VALID,NO_OUTPUT
   )
 
   vtk_add_test_cxx(${vtk-module}CxxTests tests
